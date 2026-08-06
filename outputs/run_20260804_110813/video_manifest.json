@@ -1,0 +1,20 @@
+{
+  "sub_genre": "Warm Affection",
+  "inspiring_quote": "Loving you feels like coming home to a place I didn't know I was missing. In your quiet warmth, I\u2019ve found a beautiful, endless kind of peace.",
+  "visual_narrative_prompts": [
+    "A aesthetic shot of soft morning sunlight filtering through sheer curtains, illuminating a beautifully styled, minimalist bedroom with warm beige tones. 9:16 vertical aspect ratio, portrait composition, cinematic 8k imagery.",
+    "A close-up of two hands gently intertwining, showcasing a tender and secure hold against a backdrop of golden hour light. 9:16 vertical aspect ratio, portrait composition, cinematic 8k imagery.",
+    "An intimate moment of a couple sharing a quiet laugh, foreheads softly touching in a sun-drenched, modern kitchen. 9:16 vertical aspect ratio, portrait composition, cinematic 8k imagery.",
+    "A peaceful evening scene of a cozy living room lit by the soft glow of warm fairy lights, evoking a sense of absolute comfort and belonging. 9:16 vertical aspect ratio, portrait composition, cinematic 8k imagery."
+  ],
+  "sentences": [
+    "Loving you feels like coming home to a place I didn't know I was missing.",
+    "In your quiet warmth, I\u2019ve found a beautiful, endless kind of peace."
+  ],
+  "scene_images": [
+    "C:\\Users\\Eran\\ETVibesMusicShortsGenerator\\outputs\\run_20260804_110813\\images\\scene_01.png",
+    "C:\\Users\\Eran\\ETVibesMusicShortsGenerator\\outputs\\run_20260804_110813\\images\\scene_02.png",
+    "C:\\Users\\Eran\\ETVibesMusicShortsGenerator\\outputs\\run_20260804_110813\\images\\scene_03.png",
+    "C:\\Users\\Eran\\ETVibesMusicShortsGenerator\\outputs\\run_20260804_110813\\images\\scene_04.png"
+  ]
+}
