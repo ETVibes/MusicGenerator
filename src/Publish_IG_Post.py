@@ -1,6 +1,7 @@
 import os
 import glob
 import requests
+from pathlib import Path
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
