@@ -8,7 +8,9 @@ load_dotenv()
 
 BUFFER_API_KEY = os.getenv("BUFFER_API_KEY")
 BUFFER_CHANNEL_ID = os.getenv("BUFFER_INSTAGRAM_CHANNEL_ID")
-IMAGE_DIR = r"C:\Users\Eran\ETVibesMusicShortsGenerator\output\Single_Image"
+# Dynamically set IMAGE_DIR relative to the repository root directory
+BASE_DIR = Path(__file__).resolve().parent.parent
+IMAGE_DIR = BASE_DIR / "output" / "Single_Image"
 
 
 def get_latest_image(folder_path: str) -> str:
