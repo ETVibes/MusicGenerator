@@ -13,7 +13,7 @@ env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
 
-def generate_vibe_and_text(selected_theme="INSPIRATIONAL_UPLIFTING"):
+def generate_vibe_and_text(selected_theme="Inspirational & Uplifting"):
   api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
   if not api_key:
     raise ValueError(
@@ -23,12 +23,12 @@ def generate_vibe_and_text(selected_theme="INSPIRATIONAL_UPLIFTING"):
   client = genai.Client(api_key=api_key)
 
   theme_instructions = {
-      "INSPIRATIONAL_UPLIFTING": """
+      "Inspirational & Uplifting": """
             THEME: Pure Inspiration & Uplifting Joy
             - Focus on joy, wonder, light, gratitude, inner peace, and the magic of everyday life.
             - ABSOLUTE BAN: Do NOT mention struggle, obstacles, pain, healing, dark times, or overcoming hardship.
         """,
-      "LOVE_AND_ROMANCE": """
+      "Love & Romance": """
             THEME: Deep Love & Romance
             - Focus on warmth, deep connection, soulmates, romantic devotion, tenderness, and shared joy.
             - ABSOLUTE BAN: Do NOT mention heartbreak, hard times, fighting, or loss.
@@ -38,7 +38,7 @@ def generate_vibe_and_text(selected_theme="INSPIRATIONAL_UPLIFTING"):
   system_prompt = f"""
     You are a high-level creative scriptwriter for adult-focused motivational and romantic short-form videos (9:16 vertical format).
 
-    {theme_instructions.get(selected_theme, theme_instructions["INSPIRATIONAL_UPLIFTING"])}
+    {theme_instructions.get(selected_theme, theme_instructions["Inspirational & Uplifting"])}
 
     STRICT GUIDELINES:
     1. LENGTH: Maximum 2 to 3 concise, punchy parts/segments.
