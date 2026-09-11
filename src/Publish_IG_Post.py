@@ -4,22 +4,28 @@ import requests
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
 BUFFER_API_KEY = os.getenv("BUFFER_API_KEY")
 BUFFER_CHANNEL_ID = os.getenv("BUFFER_INSTAGRAM_CHANNEL_ID")
-# Dynamically set IMAGE_DIR relative to the repository root directory
+
+CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
+CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
+CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
+
+# Dynamically set IMAGE_DIR relative to project root directory
 BASE_DIR = Path(__file__).resolve().parent.parent
 IMAGE_DIR = BASE_DIR / "output" / "Single_Image"
 
 
-def get_latest_image(folder_path: str) -> str:
+def get_latest_image(folder_path: Path) -> str:
     """Finds the most recently modified image (.jpg, .jpeg, .png) in the specified directory."""
+    folder_path = Path(folder_path)
     extensions = ("*.jpg", "*.jpeg", "*.png")
     files = []
     for ext in extensions:
-        files.extend(glob.glob(os.path.join(folder_path, ext)))
+        files.extend(glob.glob(str(folder_path / ext)))
 
     if not files:
         raise FileNotFoundError(f"No image files found in {folder_path}")
@@ -28,21 +34,24 @@ def get_latest_image(folder_path: str) -> str:
 
 
 def upload_local_image_temp(file_path: str) -> str:
-    """Uploads a local image file to Catbox.moe to generate a public HTTPS URL required by Buffer."""
-    upload_url = "https://catbox.moe/user/api.php"
-    
-    with open(file_path, "rb") as file_data:
-        response = requests.post(
-            upload_url,
-            data={"reqtype": "fileupload"},
-            files={"fileToUpload": file_data},
-            timeout=15
-        )
+    """Uploads a local image file to Cloudinary to generate a public HTTPS URL required by Buffer."""
+    import cloudinary
+    import cloudinary.uploader
 
-    if response.status_code != 200 or not response.text.startswith("https://"):
-        raise Exception(f"Failed to upload image temporarily: {response.text}")
+    cloudinary.config(
+        cloud_name=CLOUDINARY_CLOUD_NAME,
+        api_key=CLOUDINARY_API_KEY,
+        api_secret=CLOUDINARY_API_SECRET,
+        secure=True,
+    )
 
-    return response.text.strip()
+    response = cloudinary.uploader.upload(file_path, folder="temp_buffer_uploads")
+    public_url = response.get("secure_url")
+
+    if not public_url:
+        raise Exception(f"Failed to upload image to Cloudinary: {response}")
+
+    return public_url
 
 
 def post_image_to_buffer(image_url: str, caption: str) -> dict:
