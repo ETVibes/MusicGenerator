@@ -54,7 +54,7 @@ def upload_local_image_temp(file_path: str) -> str:
     return public_url
 
 
-def post_image_to_buffer(image_url: str, caption: str) -> dict:
+def post_image_to_buffer(image_url: str, caption: str, music_recommendation: str = None) -> dict:
     """Sends the hosted image URL and metadata payload to Buffer GraphQL API."""
     mutation = """
     mutation CreatePost($input: CreatePostInput!) {
@@ -72,6 +72,15 @@ def post_image_to_buffer(image_url: str, caption: str) -> dict:
     }
     """
 
+    instagram_metadata = {
+        "type": "post",
+        "shouldShareToFeed": True
+    }
+
+    # Add audio metadata if music recommendation is provided and supported by API
+    if music_recommendation:
+        instagram_metadata["audioName"] = music_recommendation
+
     variables = {
         "input": {
             "channelId": BUFFER_CHANNEL_ID,
@@ -86,10 +95,7 @@ def post_image_to_buffer(image_url: str, caption: str) -> dict:
                 }
             ],
             "metadata": {
-                "instagram": {
-                    "type": "post",
-                    "shouldShareToFeed": True
-                }
+                "instagram": instagram_metadata
             }
         }
     }
@@ -108,15 +114,16 @@ def post_image_to_buffer(image_url: str, caption: str) -> dict:
     return response.json()
 
 
-def publish_latest_single_image(caption: str):
+def publish_latest_single_image(caption: str, music_recommendation: str = None):
     """Main workflow function to fetch local image, upload, and publish via Buffer."""
     local_image_path = get_latest_image(IMAGE_DIR)
     public_image_url = upload_local_image_temp(local_image_path)
-    response = post_image_to_buffer(public_image_url, caption)
+    response = post_image_to_buffer(public_image_url, caption, music_recommendation=music_recommendation)
     return response
 
 
 if __name__ == "__main__":
     caption_text = "Daily Whisper ✨ - Automated Post"
-    result = publish_latest_single_image(caption_text)
+    music_track = "Malcolm Todd - Gene Skirt"  # Local Testing Only. Will not be used as part of a flow
+    result = publish_latest_single_image(caption_text, music_recommendation=music_track)
     print("Buffer Response:", result)
