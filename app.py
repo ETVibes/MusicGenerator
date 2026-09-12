@@ -205,13 +205,14 @@ def select_format_step(selected_format):
 
 def on_theme_click(theme_selection, output_format, progress=gr.Progress()):
     if output_format == "Single Image":
-        progress(0.4, desc="Generating quote, explanation, hashtags & image...")
-        image_path, sentence, explanation, hashtags = generate_single_image_post(theme_selection)
+        progress(0.4, desc="Generating quote, explanation, hashtags, music & image...")
+        image_path, sentence, explanation, hashtags, music_recommendation = generate_single_image_post(theme_selection)
 
         status = (
             f"### Theme: {theme_selection}\n\n"
             f"**Embedded Sentence:** \"{sentence}\"\n\n"
             f"**Explanation:**\n{explanation}\n\n"
+            f"**Suggested Audio:** {music_recommendation}\n\n"
             f"**Hashtags:** {hashtags}"
         )
 
@@ -221,6 +222,7 @@ def on_theme_click(theme_selection, output_format, progress=gr.Progress()):
             sentence,
             explanation,
             hashtags,
+            music_recommendation,
             [sentence],
             gr.update(visible=False),
             gr.update(visible=True),
@@ -250,6 +252,7 @@ def on_theme_click(theme_selection, output_format, progress=gr.Progress()):
             quote,
             "",
             "",
+            "",
             sentences,
             gr.update(visible=True),
             gr.update(visible=False),
@@ -271,7 +274,7 @@ def step2_generate_images(quote, sentences, progress=gr.Progress()):
     return gr.update(value=image_paths, columns=4, elem_classes=["short-flow-gallery"], visible=True)
 
 
-def handle_publish_to_instagram(sentence: str, explanation: str, hashtags: str, progress=gr.Progress()):
+def handle_publish_to_instagram(sentence: str, explanation: str, hashtags: str, music_recommendation: str, progress=gr.Progress()):
     if not sentence:
         return "❌ **Error:** No sentence/caption available to publish."
 
@@ -279,7 +282,7 @@ def handle_publish_to_instagram(sentence: str, explanation: str, hashtags: str, 
     progress(0.7, desc="Sending post request to Buffer API...")
 
     if explanation and hashtags:
-        caption_text = f"{sentence}\n\n{explanation}\n\n✨ {hashtags}"
+        caption_text = f"{sentence}\n\n{explanation}\n\n🎵 Suggested Audio: {music_recommendation}\n\n✨ {hashtags}"
     else:
         caption_text = f"{sentence}\n\n✨ #thisisdailywhisper #inspiration #motivation"
 
@@ -303,6 +306,7 @@ with gr.Blocks(title="ETVibes Content Generator") as demo:
     state_quote = gr.State("")
     state_explanation = gr.State("")
     state_hashtags = gr.State("")
+    state_music = gr.State("")
     state_sentences = gr.State([])
 
     gr.Markdown("### Select Format")
@@ -354,26 +358,26 @@ with gr.Blocks(title="ETVibes Content Generator") as demo:
     inspirational_btn.click(fn=lambda: "Inspirational & Uplifting", outputs=[selected_theme]).then(
         fn=on_theme_click,
         inputs=[selected_theme, selected_format],
-        outputs=[output_text, state_quote, state_explanation, state_hashtags, state_sentences, approval_row, single_image_pub_row, output_gallery, publish_status],
+        outputs=[output_text, state_quote, state_explanation, state_hashtags, state_music, state_sentences, approval_row, single_image_pub_row, output_gallery, publish_status],
     )
 
     romance_btn.click(fn=lambda: "Love & Romance", outputs=[selected_theme]).then(
         fn=on_theme_click,
         inputs=[selected_theme, selected_format],
-        outputs=[output_text, state_quote, state_explanation, state_hashtags, state_sentences, approval_row, single_image_pub_row, output_gallery, publish_status],
+        outputs=[output_text, state_quote, state_explanation, state_hashtags, state_music, state_sentences, approval_row, single_image_pub_row, output_gallery, publish_status],
     )
 
     regenerate_btn.click(
         fn=on_theme_click,
         inputs=[selected_theme, selected_format],
-        outputs=[output_text, state_quote, state_explanation, state_hashtags, state_sentences, approval_row, single_image_pub_row, output_gallery, publish_status],
+        outputs=[output_text, state_quote, state_explanation, state_hashtags, state_music, state_sentences, approval_row, single_image_pub_row, output_gallery, publish_status],
     )
 
     approve_btn.click(fn=step2_generate_images, inputs=[state_quote, state_sentences], outputs=[output_gallery])
 
     publish_ig_btn.click(
         fn=handle_publish_to_instagram,
-        inputs=[state_quote, state_explanation, state_hashtags],
+        inputs=[state_quote, state_explanation, state_hashtags, state_music],
         outputs=[publish_status],
     )
 

@@ -1,5 +1,6 @@
 from datetime import datetime
 import io
+import json
 from pathlib import Path
 import random
 from google import genai
@@ -87,13 +88,13 @@ def get_random_style() -> str:
 
 def generate_single_image_post(
     theme: str = None, force_panels: int = None
-) -> tuple[str, str, str, str]:
-    """Generates an Instagram post image, quote, explanation, and hashtags.
+) -> tuple[str, str, str, str, str]:
+    """Generates an Instagram post image, quote, explanation, hashtags, and music recommendation.
 
     :param theme: Optional theme. If None, a random theme is selected.
     :param force_panels: Optional integer (1, 2, or 3) to force single panel or
       split story mode.
-    :return: Tuple containing (image_path, short_sentence, explanation, hashtags)
+    :return: Tuple containing (image_path, short_sentence, explanation, hashtags, music_recommendation)
     """
     client = genai.Client()
 
@@ -125,11 +126,13 @@ def generate_single_image_post(
             f"Write an Instagram post caption package for the theme '{active_theme}'.\n"
             f"1. A single short, impactful, and inspiring sentence (4-6 words max).\n"
             f"2. A 2-3 sentence inspiring explanation reflecting deeply on the sentence.\n"
-            f"3. 6 to 9 relevant, high-engagement Instagram hashtags tailored specifically to '{active_theme}' (always include #thisisdailywhisper).\n\n"
+            f"3. 6 to 9 relevant, high-engagement Instagram hashtags tailored specifically to '{active_theme}' (always include #thisisdailywhisper).\n"
+            f"4. A suggested song title and artist available on Instagram Audio that matches the mood of the sentence.\n\n"
             f"Format strictly as:\n"
             f"QUOTE: <your quote without quotation marks>\n"
             f"EXPLANATION: <your explanation>\n"
-            f"HASHTAGS: <your hashtags separated by spaces>"
+            f"HASHTAGS: <your hashtags separated by spaces>\n"
+            f"MUSIC: <song name - artist name or genre keyword search>"
         )
         sentence_response = client.models.generate_content(
             model="gemini-3.6-flash",
@@ -140,6 +143,7 @@ def generate_single_image_post(
         short_sentence = ""
         explanation = ""
         hashtags = "#thisisdailywhisper #inspiration #motivation"
+        music_recommendation = ""
 
         for line in raw_text.splitlines():
             if line.startswith("QUOTE:"):
@@ -148,6 +152,8 @@ def generate_single_image_post(
                 explanation = line.replace("EXPLANATION:", "").strip()
             elif line.startswith("HASHTAGS:"):
                 hashtags = line.replace("HASHTAGS:", "").strip()
+            elif line.startswith("MUSIC:"):
+                music_recommendation = line.replace("MUSIC:", "").strip()
 
         if not short_sentence:
             short_sentence = raw_text.splitlines()[0].replace('"', "")
@@ -164,11 +170,13 @@ def generate_single_image_post(
             f"Write an Instagram multi-panel story post caption package for the theme '{active_theme}'.\n"
             f"1. A short, inspiring {num_panels}-part story quote (total 6-10 words max) separated strictly by '|'.\n"
             f"2. A 2-3 sentence inspiring explanation reflecting deeply on the story.\n"
-            f"3. 6 to 9 relevant, high-engagement Instagram hashtags tailored specifically to '{active_theme}' (always include #thisisdailywhisper).\n\n"
+            f"3. 6 to 9 relevant, high-engagement Instagram hashtags tailored specifically to '{active_theme}' (always include #thisisdailywhisper).\n"
+            f"4. A suggested song title and artist available on Instagram Audio that matches the mood of the sentence.\n\n"
             f"Format strictly as:\n"
             f"QUOTE: <segment 1 | segment 2 | segment 3>\n"
             f"EXPLANATION: <your explanation>\n"
-            f"HASHTAGS: <your hashtags separated by spaces>"
+            f"HASHTAGS: <your hashtags separated by spaces>\n"
+            f"MUSIC: <song name - artist name or genre keyword search>"
         )
         sentence_response = client.models.generate_content(
             model="gemini-3.6-flash",
@@ -179,6 +187,7 @@ def generate_single_image_post(
         quote_raw = ""
         explanation = ""
         hashtags = "#thisisdailywhisper #inspiration #motivation"
+        music_recommendation = ""
 
         for line in raw_text.splitlines():
             if line.startswith("QUOTE:"):
@@ -187,6 +196,8 @@ def generate_single_image_post(
                 explanation = line.replace("EXPLANATION:", "").strip()
             elif line.startswith("HASHTAGS:"):
                 hashtags = line.replace("HASHTAGS:", "").strip()
+            elif line.startswith("MUSIC:"):
+                music_recommendation = line.replace("MUSIC:", "").strip()
 
         parts = [p.strip() for p in quote_raw.split("|") if p.strip()]
 
@@ -247,4 +258,4 @@ def generate_single_image_post(
     if not image_saved:
         raise RuntimeError("Gemini failed to return an image in the response.")
 
-    return str(output_path), short_sentence, explanation, hashtags
+    return str(output_path), short_sentence, explanation, hashtags, music_recommendation

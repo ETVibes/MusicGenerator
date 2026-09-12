@@ -24,13 +24,14 @@ def run_auto_publish(theme: str = None):
         theme = get_random_theme()
     print(f"\n[STEP 1/3] Selected Theme: '{theme}'")
 
-    # 2. Generate Image, Explanation & Hashtags
+    # 2. Generate Image, Explanation, Hashtags & Music Recommendation
     print("[STEP 2/3] Generating image and detailed caption content via Gemini...")
     try:
-        image_path, sentence, explanation, hashtags = generate_single_image_post(theme)
+        image_path, sentence, explanation, hashtags, music_recommendation = generate_single_image_post(theme)
         print(f"  └─ Success!")
         print(f"  └─ Quote Embedded: \"{sentence}\"")
         print(f"  └─ Image File Saved: {image_path}")
+        print(f"  └─ Recommended Audio: {music_recommendation}")
     except Exception as e:
         print(f"❌ [STEP 2 FAILED] Image generation failed: {e}")
         sys.exit(1)
@@ -38,8 +39,8 @@ def run_auto_publish(theme: str = None):
     # 3. Upload & Publish to Instagram
     print("\n[STEP 3/3] Publishing to Instagram via Buffer API...")
     
-    # Format caption with sentence, longer explanation, and dynamic hashtags
-    caption = f"{sentence}\n\n{explanation}\n\n✨ {hashtags}"
+    # Format caption with sentence, longer explanation, dynamic hashtags, and optional music track note
+    caption = f"{sentence}\n\n{explanation}\n\n🎵 Suggested Audio: {music_recommendation}\n\n✨ {hashtags}"
 
     try:
         res = publish_latest_single_image(caption)
