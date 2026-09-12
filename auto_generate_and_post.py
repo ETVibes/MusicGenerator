@@ -1,6 +1,5 @@
 import os
 import sys
-import random
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -8,15 +7,11 @@ load_dotenv()
 
 # Import generation and publishing functions
 try:
-    from src.single_image_generator import generate_single_image_post
     from src.Publish_IG_Post import publish_latest_single_image
+    from src.single_image_generator import generate_single_image_post, get_random_theme
 except ImportError as e:
     print(f"❌ Error importing project modules: {e}")
     sys.exit(1)
-
-
-THEMES = ["Inspirational & Uplifting", "Love & Romance"]
-
 
 def run_auto_publish(theme: str = None):
     """Automates image generation and Instagram publishing with detailed CLI logs."""
@@ -26,13 +21,13 @@ def run_auto_publish(theme: str = None):
 
     # 1. Select Theme
     if not theme:
-        theme = random.choice(THEMES)
+        theme = get_random_theme()
     print(f"\n[STEP 1/3] Selected Theme: '{theme}'")
 
-    # 2. Generate Image & Text
-    print("[STEP 2/3] Generating image and overlay quote via Gemini...")
+    # 2. Generate Image, Explanation & Hashtags
+    print("[STEP 2/3] Generating image and detailed caption content via Gemini...")
     try:
-        image_path, sentence = generate_single_image_post(theme)
+        image_path, sentence, explanation, hashtags = generate_single_image_post(theme)
         print(f"  └─ Success!")
         print(f"  └─ Quote Embedded: \"{sentence}\"")
         print(f"  └─ Image File Saved: {image_path}")
@@ -42,7 +37,9 @@ def run_auto_publish(theme: str = None):
 
     # 3. Upload & Publish to Instagram
     print("\n[STEP 3/3] Publishing to Instagram via Buffer API...")
-    caption = f"{sentence}\n\n✨ #dailywhisper #inspiration #motivation"
+    
+    # Format caption with sentence, longer explanation, and dynamic hashtags
+    caption = f"{sentence}\n\n{explanation}\n\n✨ {hashtags}"
 
     try:
         res = publish_latest_single_image(caption)

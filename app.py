@@ -29,7 +29,6 @@ insta_single_b64 = get_image_base64(INSTA_SINGLE_IMG_PATH)
 insta_short_b64 = get_image_base64(INSTA_SHORT_IMG_PATH)
 
 custom_css = """
-/* Reset Gradio default panel backgrounds and paddings */
 .gradio-container, 
 .gr-form, 
 .form, 
@@ -72,7 +71,6 @@ div[class*="block"] {
     background-color: #C13584 !important;
 }
 
-/* Custom Image Card Buttons for Themes */
 .card-btn {
     position: relative !important;
     width: 100px !important;
@@ -94,7 +92,6 @@ div[class*="block"] {
     box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
 }
 
-/* Small Square Buttons for Format Icons with full image display */
 .format-card-btn {
     position: relative !important;
     width: 90px !important;
@@ -117,7 +114,6 @@ div[class*="block"] {
     box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
 }
 
-/* Position White Bold Labels at the Top of Each Card */
 #format-single-card::after {
     content: "Single Image";
     position: absolute;
@@ -172,7 +168,6 @@ div[class*="block"] {
     pointer-events: none;
 }
 
-/* Single Image Flow: Compact, left-aligned layout */
 .single-image-gallery {
     max-width: 280px !important;
     margin-left: 0 !important;
@@ -184,7 +179,6 @@ div[class*="block"] {
     object-fit: contain !important;
 }
 
-/* Short Flow: Force full width across columns */
 .short-flow-gallery {
     width: 100% !important;
     max-width: 100% !important;
@@ -206,27 +200,32 @@ div[class*="block"] {
 
 
 def select_format_step(selected_format):
-    """Saves format choice and unhides the theme selection block."""
     return selected_format, gr.update(visible=True)
 
 
 def on_theme_click(theme_selection, output_format, progress=gr.Progress()):
-    """Routes generation based on format."""
     if output_format == "Single Image":
-        progress(0.4, desc="Generating sentence & image...")
-        image_path, sentence = generate_single_image_post(theme_selection)
+        progress(0.4, desc="Generating quote, explanation, hashtags & image...")
+        image_path, sentence, explanation, hashtags = generate_single_image_post(theme_selection)
 
-        status = f"### Theme: {theme_selection}\n**Embedded Sentence:** \"{sentence}\""
+        status = (
+            f"### Theme: {theme_selection}\n\n"
+            f"**Embedded Sentence:** \"{sentence}\"\n\n"
+            f"**Explanation:**\n{explanation}\n\n"
+            f"**Hashtags:** {hashtags}"
+        )
 
         progress(1.0, desc="Done!")
         return (
             status,
             sentence,
+            explanation,
+            hashtags,
             [sentence],
-            gr.update(visible=False),  # Hide Short approval row
-            gr.update(visible=True),   # Unhide Single Image publishing row
+            gr.update(visible=False),
+            gr.update(visible=True),
             gr.update(value=[image_path], columns=1, elem_classes=["single-image-gallery"], visible=True),
-            ""                         # Clear previous publish status
+            ""
         )
     else:
         progress(0.3, desc=f"Generating {theme_selection} quote...")
@@ -249,16 +248,17 @@ def on_theme_click(theme_selection, output_format, progress=gr.Progress()):
         return (
             formatted_quote,
             quote,
+            "",
+            "",
             sentences,
-            gr.update(visible=True),   # Unhide Short approval row
-            gr.update(visible=False),  # Hide Single Image publishing row
+            gr.update(visible=True),
             gr.update(visible=False),
-            ""                         # Clear previous publish status
+            gr.update(visible=False),
+            ""
         )
 
 
 def step2_generate_images(quote, sentences, progress=gr.Progress()):
-    """Step 2: Generates 4 scenes for Short format."""
     if not quote:
         return gr.update()
 
@@ -271,15 +271,18 @@ def step2_generate_images(quote, sentences, progress=gr.Progress()):
     return gr.update(value=image_paths, columns=4, elem_classes=["short-flow-gallery"], visible=True)
 
 
-def handle_publish_to_instagram(sentence: str, progress=gr.Progress()):
-    """Publishes the latest generated single image to Instagram via Buffer."""
+def handle_publish_to_instagram(sentence: str, explanation: str, hashtags: str, progress=gr.Progress()):
     if not sentence:
         return "❌ **Error:** No sentence/caption available to publish."
 
     progress(0.3, desc="Uploading image temporarily...")
     progress(0.7, desc="Sending post request to Buffer API...")
 
-    caption_text = f"{sentence}\n\n✨ #dailywhisper #inspiration #motivation"
+    if explanation and hashtags:
+        caption_text = f"{sentence}\n\n{explanation}\n\n✨ {hashtags}"
+    else:
+        caption_text = f"{sentence}\n\n✨ #thisisdailywhisper #inspiration #motivation"
+
     res = publish_latest_single_image(caption_text)
 
     post_data = res.get("data", {}).get("createPost", {})
@@ -293,67 +296,37 @@ def handle_publish_to_instagram(sentence: str, progress=gr.Progress()):
 
 with gr.Blocks(title="ETVibes Content Generator") as demo:
     gr.Markdown("# 🎬 ETVibes Content Generator")
-    gr.Markdown(
-        "Select a format and theme picture below to generate your content."
-    )
+    gr.Markdown("Select a format and theme picture below to generate your content.")
 
-    # State variables
     selected_format = gr.State("Short")
     selected_theme = gr.State("Inspirational & Uplifting")
     state_quote = gr.State("")
+    state_explanation = gr.State("")
+    state_hashtags = gr.State("")
     state_sentences = gr.State([])
 
-    # Step 0: Format Selection
     gr.Markdown("### Select Format")
     with gr.Row():
-        single_img_btn = gr.Button(
-            value="",
-            elem_classes=["format-card-btn"],
-            elem_id="format-single-card",
-        )
-        short_btn = gr.Button(
-            value="",
-            elem_classes=["format-card-btn"],
-            elem_id="format-short-card",
-        )
+        single_img_btn = gr.Button(value="", elem_classes=["format-card-btn"], elem_id="format-single-card")
+        short_btn = gr.Button(value="", elem_classes=["format-card-btn"], elem_id="format-short-card")
 
-    # Step 1: Theme Selection (Revealed once format is chosen)
     with gr.Column(visible=False) as theme_section:
         gr.Markdown("### Select a theme to generate a quote")
         with gr.Row():
-            inspirational_btn = gr.Button(
-                value="",
-                elem_classes=["card-btn"],
-                elem_id="inspirational-card",
-            )
-            romance_btn = gr.Button(
-                value="",
-                elem_classes=["card-btn"],
-                elem_id="romance-card",
-            )
+            inspirational_btn = gr.Button(value="", elem_classes=["card-btn"], elem_id="inspirational-card")
+            romance_btn = gr.Button(value="", elem_classes=["card-btn"], elem_id="romance-card")
 
-    # Generated quote display
     output_text = gr.Markdown(label="Generated Lines & Vibe")
 
-    # Action buttons directly beneath the quote for Short format
     with gr.Row(visible=False) as approval_row:
-        approve_btn = gr.Button(
-            "✅ Continue to Images", elem_id="run-btn", size="sm"
-        )
-        regenerate_btn = gr.Button(
-            "🔄 Generate New quote", elem_id="run-btn", size="sm"
-        )
+        approve_btn = gr.Button("✅ Continue to Images", elem_id="run-btn", size="sm")
+        regenerate_btn = gr.Button("🔄 Generate New quote", elem_id="run-btn", size="sm")
 
-    # Action button for Single Image Instagram publishing
     with gr.Row(visible=False) as single_image_pub_row:
-        publish_ig_btn = gr.Button(
-            "📸 Publish to Instagram", elem_id="ig-publish-btn", size="sm"
-        )
+        publish_ig_btn = gr.Button("📸 Publish to Instagram", elem_id="ig-publish-btn", size="sm")
 
-    # Display publish feedback
     publish_status = gr.Markdown("")
 
-    # Image gallery placed at the bottom
     output_gallery = gr.Gallery(
         label="Generated Scenes",
         columns=4,
@@ -362,103 +335,45 @@ with gr.Blocks(title="ETVibes Content Generator") as demo:
         visible=False,
     )
 
-    # Inject dynamic base64 styles for all card backgrounds
     card_styles = f"""
-    #format-single-card {{
-        background-image: url('{insta_single_b64}') !important;
-    }}
-    #format-short-card {{
-        background-image: url('{insta_short_b64}') !important;
-    }}
-    #inspirational-card {{
-        background-image: url('{inspirational_b64}') !important;
-    }}
-    #romance-card {{
-        background-image: url('{romance_b64}') !important;
-    }}
+    #format-single-card {{ background-image: url('{insta_single_b64}') !important; }}
+    #format-short-card {{ background-image: url('{insta_short_b64}') !important; }}
+    #inspirational-card {{ background-image: url('{inspirational_b64}') !important; }}
+    #romance-card {{ background-image: url('{romance_b64}') !important; }}
     """
     gr.HTML(f"<style>{card_styles}</style>")
 
-    # Format Button Handlers
-    single_img_btn.click(
-        fn=lambda: "Single Image",
-        outputs=[selected_format],
-    ).then(
-        fn=select_format_step,
-        inputs=[selected_format],
-        outputs=[selected_format, theme_section],
+    single_img_btn.click(fn=lambda: "Single Image", outputs=[selected_format]).then(
+        fn=select_format_step, inputs=[selected_format], outputs=[selected_format, theme_section]
     )
 
-    short_btn.click(
-        fn=lambda: "Short",
-        outputs=[selected_format],
-    ).then(
-        fn=select_format_step,
-        inputs=[selected_format],
-        outputs=[selected_format, theme_section],
+    short_btn.click(fn=lambda: "Short", outputs=[selected_format]).then(
+        fn=select_format_step, inputs=[selected_format], outputs=[selected_format, theme_section]
     )
 
-    # Theme Button Handlers
-    inspirational_btn.click(
-        fn=lambda: "Inspirational & Uplifting",
-        outputs=[selected_theme],
-    ).then(
+    inspirational_btn.click(fn=lambda: "Inspirational & Uplifting", outputs=[selected_theme]).then(
         fn=on_theme_click,
         inputs=[selected_theme, selected_format],
-        outputs=[
-            output_text,
-            state_quote,
-            state_sentences,
-            approval_row,
-            single_image_pub_row,
-            output_gallery,
-            publish_status,
-        ],
+        outputs=[output_text, state_quote, state_explanation, state_hashtags, state_sentences, approval_row, single_image_pub_row, output_gallery, publish_status],
     )
 
-    romance_btn.click(
-        fn=lambda: "Love & Romance",
-        outputs=[selected_theme],
-    ).then(
+    romance_btn.click(fn=lambda: "Love & Romance", outputs=[selected_theme]).then(
         fn=on_theme_click,
         inputs=[selected_theme, selected_format],
-        outputs=[
-            output_text,
-            state_quote,
-            state_sentences,
-            approval_row,
-            single_image_pub_row,
-            output_gallery,
-            publish_status,
-        ],
+        outputs=[output_text, state_quote, state_explanation, state_hashtags, state_sentences, approval_row, single_image_pub_row, output_gallery, publish_status],
     )
 
-    # Regenerate Button Listener
     regenerate_btn.click(
         fn=on_theme_click,
         inputs=[selected_theme, selected_format],
-        outputs=[
-            output_text,
-            state_quote,
-            state_sentences,
-            approval_row,
-            single_image_pub_row,
-            output_gallery,
-            publish_status,
-        ],
+        outputs=[output_text, state_quote, state_explanation, state_hashtags, state_sentences, approval_row, single_image_pub_row, output_gallery, publish_status],
     )
 
-    # Step 2 Button Listener (Short Flow)
-    approve_btn.click(
-        fn=step2_generate_images,
-        inputs=[state_quote, state_sentences],
-        outputs=[output_gallery],
-    )
+    approve_btn.click(fn=step2_generate_images, inputs=[state_quote, state_sentences], outputs=[output_gallery])
 
-    # Single Image Instagram Publish Handler
     publish_ig_btn.click(
         fn=handle_publish_to_instagram,
-        inputs=[state_quote],
+        inputs=[state_quote, state_explanation, state_hashtags],
         outputs=[publish_status],
     )
 
