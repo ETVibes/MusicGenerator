@@ -1,3 +1,4 @@
+import argparse
 import os
 import sys
 from dotenv import load_dotenv
@@ -7,16 +8,19 @@ load_dotenv()
 
 # Import generation and publishing functions
 try:
-    from src.Publish_IG_Post import publish_latest_single_image
-    from src.single_image_generator import generate_single_image_post, get_random_theme
+    from src.Publish_IG_Post import publish_latest_single_image, publish_carousel_post
+    from src.prompt_config import get_random_theme
+    from src.single_image_generator import generate_single_image_post
+    from src.multi_slide_carousel_generator import generate_multi_slide_carousel
 except ImportError as e:
     print(f"❌ Error importing project modules: {e}")
     sys.exit(1)
 
-def run_auto_publish(theme: str = None):
+
+def run_auto_publish(theme: str = None, mode: str = "single", num_slides: int = 4):
     """Automates image generation and Instagram publishing with detailed CLI logs."""
     print("=" * 60)
-    print("🚀 STARTING AUTOMATED SINGLE IMAGE GENERATION & PUBLISH JOB")
+    print(f"🚀 STARTING AUTOMATED INSTAGRAM PUBLISH JOB [{mode.upper()} MODE]")
     print("=" * 60)
 
     # 1. Select Theme
@@ -24,26 +28,44 @@ def run_auto_publish(theme: str = None):
         theme = get_random_theme()
     print(f"\n[STEP 1/3] Selected Theme: '{theme}'")
 
-    # 2. Generate Image, Explanation, Hashtags & Music Recommendation
-    print("[STEP 2/3] Generating image and detailed caption content via Gemini...")
+    # 2. Generate Content
+    print(f"[STEP 2/3] Generating {mode} post content via Gemini...")
     try:
-        image_path, sentence, explanation, hashtags, music_recommendation = generate_single_image_post(theme)
-        print(f"  └─ Success!")
-        print(f"  └─ Quote Embedded: \"{sentence}\"")
-        print(f"  └─ Image File Saved: {image_path}")
+        if mode == "carousel":
+            image_paths, slide_quotes, explanation, hashtags, music_recommendation = (
+                generate_multi_slide_carousel(theme=theme, num_slides=num_slides)
+            )
+            headline = " | ".join(slide_quotes)
+            print("  └─ Carousel Generation Success!")
+            print(f"  └─ Total Slides Saved: {len(image_paths)}")
+            for idx, p in enumerate(image_paths, 1):
+                print(f"     Slide {idx}: {p}")
+        else:
+            image_path, headline, explanation, hashtags, music_recommendation = (
+                generate_single_image_post(theme)
+            )
+            image_paths = [image_path]
+            print("  └─ Single Image Generation Success!")
+            print(f"  └─ Quote Embedded: \"{headline}\"")
+            print(f"  └─ Image File Saved: {image_path}")
+
         print(f"  └─ Recommended Audio: {music_recommendation}")
+
     except Exception as e:
-        print(f"❌ [STEP 2 FAILED] Image generation failed: {e}")
+        print(f"❌ [STEP 2 FAILED] Generation failed: {e}")
         sys.exit(1)
 
     # 3. Upload & Publish to Instagram
     print("\n[STEP 3/3] Publishing to Instagram via Buffer API...")
-    
-    # Format caption with sentence, longer explanation, dynamic hashtags, and optional music track note
-    caption = f"{sentence}\n\n{explanation}\n\n🎵 Suggested Audio: {music_recommendation}\n\n✨ {hashtags}"
+
+    caption = f"{headline}\n\n{explanation}\n\n🎵 Suggested Audio: {music_recommendation}\n\n✨ {hashtags}"
 
     try:
-        res = publish_latest_single_image(caption)
+        if mode == "carousel" and "publish_carousel_post" in globals():
+            res = publish_carousel_post(image_paths, caption)
+        else:
+            res = publish_latest_single_image(caption)
+
         post_data = res.get("data", {}).get("createPost", {})
 
         if "post" in post_data:
@@ -65,6 +87,21 @@ def run_auto_publish(theme: str = None):
 
 
 if __name__ == "__main__":
-    # Optionally accept theme as command line argument (e.g. python auto_generate_and_post.py "Love & Romance")
-    selected_theme = sys.argv[1] if len(sys.argv) > 1 else None
-    run_auto_publish(selected_theme)
+    parser = argparse.ArgumentParser(description="Auto generate and post content to Instagram.")
+    parser.add_argument("--theme", type=str, default=None, help="Theme for the post")
+    parser.add_argument(
+        "--mode",
+        type=str,
+        choices=["single", "carousel"],
+        default="single",
+        help="Post format mode: single or carousel",
+    )
+    parser.add_argument(
+        "--slides",
+        type=int,
+        default=4,
+        help="Number of slides for carousel mode",
+    )
+
+    args = parser.parse_args()
+    run_auto_publish(theme=args.theme, mode=args.mode, num_slides=args.slides)

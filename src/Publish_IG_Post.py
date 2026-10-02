@@ -1,8 +1,24 @@
-import os
+"""===============================================================================
+Module: Publish_IG_Post.py
+Description: Automated publishing bridge for Instagram posts. Handles discovering
+             locally generated images (single or carousel), uploading assets to
+             Cloudinary for temporary hosting, verifying CDN availability, and
+             dispatched payloads to Buffer's GraphQL API.
+==============================================================================="""
 import glob
-import requests
+import logging
+import os
 from pathlib import Path
+import time
+import requests
 from dotenv import load_dotenv
+
+# Configure logging format
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -16,9 +32,21 @@ CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 
 # Dynamically set IMAGE_DIR relative to project root directory
 BASE_DIR = Path(__file__).resolve().parent.parent
-IMAGE_DIR = BASE_DIR / "output" / "Single_Image"
+SINGLE_IMAGE_DIR = BASE_DIR / "output" / "Single_Image"
+CAROUSEL_DIR = BASE_DIR / "output" / "Carousel_Posts"
 
+"""===============================================================================
+    Finds the most recently modified image (.jpg, .jpeg, .png) in the specified directory.
 
+    Args:
+        folder_path (Path): Path directory to search for images.
+
+    Returns:
+        str: Absolute file path string of the most recent image.
+
+    Raises:
+        FileNotFoundError: If no image files matching supported extensions exist in folder_path.
+==============================================================================="""
 def get_latest_image(folder_path: Path) -> str:
     """Finds the most recently modified image (.jpg, .jpeg, .png) in the specified directory."""
     folder_path = Path(folder_path)
@@ -28,15 +56,76 @@ def get_latest_image(folder_path: Path) -> str:
         files.extend(glob.glob(str(folder_path / ext)))
 
     if not files:
+        logger.error(f"No image files found in {folder_path}")
         raise FileNotFoundError(f"No image files found in {folder_path}")
 
-    return max(files, key=os.path.getmtime)
+    latest_file = max(files, key=os.path.getmtime)
+    logger.info(f"Selected latest single image: {latest_file}")
+    return latest_file
 
+"""===============================================================================
+    Finds the most recently created carousel folder and returns all sorted slide image paths within it.
 
+    Args:
+        base_carousel_dir (Path, optional): Base directory containing timestamped carousel folders.
+                                            Defaults to CAROUSEL_DIR.
+
+    Returns:
+        list[str]: Sorted file path strings for each slide in the carousel.
+
+    Raises:
+        FileNotFoundError: If the base directory does not exist, contains no subdirectories,
+                          or contains no valid slide images.
+==============================================================================="""
+def get_latest_carousel_images(base_carousel_dir: Path = CAROUSEL_DIR) -> list[str]:
+    """Finds the most recently created carousel folder and returns all sorted slide image paths within it."""
+    base_carousel_dir = Path(base_carousel_dir)
+    if not base_carousel_dir.exists():
+        logger.error(f"Carousel directory does not exist: {base_carousel_dir}")
+        raise FileNotFoundError(f"Carousel directory does not exist: {base_carousel_dir}")
+
+    # Find all carousel timestamp subdirectories
+    subdirs = [p for p in base_carousel_dir.iterdir() if p.is_dir()]
+    if not subdirs:
+        logger.error(f"No carousel folders found in {base_carousel_dir}")
+        raise FileNotFoundError(f"No carousel folders found in {base_carousel_dir}")
+
+    # Select the most recent carousel directory
+    latest_folder = max(subdirs, key=os.path.getmtime)
+    logger.info(f"Selected latest carousel folder: {latest_folder}")
+
+    # Fetch and sort all slide image files sequentially (slide_1, slide_2, ...)
+    extensions = ("*.jpg", "*.jpeg", "*.png")
+    files = []
+    for ext in extensions:
+        files.extend(glob.glob(str(latest_folder / ext)))
+
+    if not files:
+        logger.error(f"No slides found in latest carousel folder: {latest_folder}")
+        raise FileNotFoundError(f"No slides found in latest carousel folder: {latest_folder}")
+
+    sorted_slides = sorted(files)
+    logger.info(f"Found {len(sorted_slides)} slide images to publish: {sorted_slides}")
+    return sorted_slides
+
+"""===============================================================================
+    Uploads a local image file to Cloudinary to generate a public HTTPS URL required by Buffer.
+
+    Args:
+        file_path (str): Local path to image file.
+
+    Returns:
+        str: Public HTTPS URL string generated by Cloudinary.
+
+    Raises:
+        Exception: If Cloudinary credentials fail, connection drops, or URL is omitted from response.
+==============================================================================="""
 def upload_local_image_temp(file_path: str) -> str:
     """Uploads a local image file to Cloudinary to generate a public HTTPS URL required by Buffer."""
     import cloudinary
     import cloudinary.uploader
+
+    logger.info(f"Uploading image to Cloudinary: {file_path}")
 
     cloudinary.config(
         cloud_name=CLOUDINARY_CLOUD_NAME,
@@ -45,17 +134,73 @@ def upload_local_image_temp(file_path: str) -> str:
         secure=True,
     )
 
-    response = cloudinary.uploader.upload(file_path, folder="temp_buffer_uploads")
-    public_url = response.get("secure_url")
+    try:
+        response = cloudinary.uploader.upload(file_path, folder="temp_buffer_uploads")
+        public_url = response.get("secure_url")
 
-    if not public_url:
-        raise Exception(f"Failed to upload image to Cloudinary: {response}")
+        if not public_url:
+            logger.error(f"Cloudinary upload failed. Response: {response}")
+            raise Exception(f"Failed to upload image to Cloudinary: {response}")
 
-    return public_url
+        logger.info(f"Cloudinary Upload Success: {public_url}")
+        return public_url
+    except Exception as e:
+        logger.exception(f"Exception raised during Cloudinary upload for {file_path}")
+        raise e
 
+"""===============================================================================
+    Polls Cloudinary URLs via HTTP HEAD requests until they return 200 OK and are cached on CDN.
 
-def post_image_to_buffer(image_url: str, caption: str, music_recommendation: str = None) -> dict:
-    """Sends the hosted image URL and metadata payload to Buffer GraphQL API."""
+    Args:
+        urls (list[str]): List of HTTPS image URLs to check.
+        timeout (int, optional): Maximum seconds to wait before timing out. Defaults to 15.
+        poll_interval (float, optional): Interval in seconds between checks. Defaults to 0.5.
+
+    Returns:
+        bool: True if all URLs responded with 200 OK within timeout, False otherwise.
+==============================================================================="""
+def wait_for_cloudinary_urls(urls: list[str], timeout: int = 15, poll_interval: float = 0.5) -> bool:
+    """Polls Cloudinary URLs via HTTP HEAD requests until they return 200 OK and are fully cached on CDN."""
+    start_time = time.time()
+    pending_urls = list(urls)
+
+    logger.info("Verifying Cloudinary CDN propagation for uploaded assets...")
+
+    while pending_urls and (time.time() - start_time) < timeout:
+        for url in list(pending_urls):
+            try:
+                response = requests.head(url, timeout=3)
+                if response.status_code == 200:
+                    pending_urls.remove(url)
+            except requests.RequestException:
+                pass
+
+        if pending_urls:
+            time.sleep(poll_interval)
+
+    if pending_urls:
+        logger.warning(f"Timeout reached. {len(pending_urls)} URLs still pending CDN readiness.")
+        return False
+
+    logger.info("All Cloudinary image URLs are verified accessible on CDN.")
+    return True
+
+"""===============================================================================
+    Sends hosted image URLs and metadata payload to Buffer GraphQL API.
+
+    Args:
+        image_urls (list[str]): Public HTTPS image URLs to attach to post.
+        caption (str): Main post text caption.
+        music_recommendation (str, optional): Suggested track to append to caption text.
+
+    Returns:
+        dict: Parsed JSON response dictionary returned by Buffer GraphQL endpoint.
+
+    Raises:
+        Exception: If network connection fails or HTTP response payload cannot be parsed.
+==============================================================================="""
+def post_image_to_buffer(image_urls: list[str], caption: str, music_recommendation: str = None) -> dict:
+    """Sends hosted image URLs and metadata payload to Buffer GraphQL API."""
     mutation = """
     mutation CreatePost($input: CreatePostInput!) {
       createPost(input: $input) {
@@ -72,28 +217,26 @@ def post_image_to_buffer(image_url: str, caption: str, music_recommendation: str
     }
     """
 
+    final_caption = caption
+    if music_recommendation:
+        final_caption = f"{caption}\n\n🎵 Suggested Track: {music_recommendation}"
+
+    # Standard AssetInput array with multiple image URLs
+    assets = [{"image": {"url": url}} for url in image_urls]
+
+    # Instagram API requires "type": "post" (Buffer converts multiple assets into a carousel automatically)
     instagram_metadata = {
         "type": "post",
         "shouldShareToFeed": True
     }
 
-    # Add audio metadata if music recommendation is provided and supported by API
-    if music_recommendation:
-        instagram_metadata["audioName"] = music_recommendation
-
     variables = {
         "input": {
             "channelId": BUFFER_CHANNEL_ID,
-            "text": caption,
+            "text": final_caption,
             "schedulingType": "automatic",
-            "mode": "shareNow",
-            "assets": [
-                {
-                    "image": {
-                        "url": image_url
-                    }
-                }
-            ],
+            "mode": "addToQueue",  # Queues post for immediate background container assembly & publication
+            "assets": assets,
             "metadata": {
                 "instagram": instagram_metadata
             }
@@ -105,25 +248,84 @@ def post_image_to_buffer(image_url: str, caption: str, music_recommendation: str
         "Authorization": f"Bearer {BUFFER_API_KEY}"
     }
 
+    logger.info(f"Sending GraphQL payload to Buffer for Channel ID: {BUFFER_CHANNEL_ID}")
+
     response = requests.post(
         "https://api.buffer.com",
         headers=headers,
         json={"query": mutation, "variables": variables}
     )
 
-    return response.json()
+    logger.info(f"Buffer API HTTP Status Code: {response.status_code}")
 
+    try:
+        res_json = response.json()
+        logger.info(f"Buffer Raw API Response: {res_json}")
 
+        if "errors" in res_json:
+            logger.error(f"Buffer GraphQL Errors: {res_json['errors']}")
+
+        create_post_data = res_json.get("data", {}).get("createPost", {})
+        if "message" in create_post_data:
+            logger.error(f"Buffer Mutation Error Message: {create_post_data['message']}")
+
+        return res_json
+    except Exception as e:
+        logger.error(f"Failed to parse Buffer HTTP response text: {response.text}")
+        raise e
+
+"""===============================================================================
+    Main workflow function to fetch local image, upload, and publish single post via Buffer.
+
+    Args:
+        caption (str): Caption text for single image post.
+        music_recommendation (str, optional): Suggested track recommendation.
+
+    Returns:
+        dict: Buffer API response payload.
+==============================================================================="""
 def publish_latest_single_image(caption: str, music_recommendation: str = None):
-    """Main workflow function to fetch local image, upload, and publish via Buffer."""
-    local_image_path = get_latest_image(IMAGE_DIR)
+    """Main workflow function to fetch local image, upload, and publish single post via Buffer."""
+    logger.info("Starting publish workflow for single image...")
+    local_image_path = get_latest_image(SINGLE_IMAGE_DIR)
     public_image_url = upload_local_image_temp(local_image_path)
-    response = post_image_to_buffer(public_image_url, caption, music_recommendation=music_recommendation)
+    
+    # Check CDN availability
+    wait_for_cloudinary_urls([public_image_url])
+    
+    response = post_image_to_buffer([public_image_url], caption, music_recommendation=music_recommendation)
+    return response
+
+"""===============================================================================
+    Workflow function to upload multiple image paths and publish a Carousel post via Buffer.
+
+    Args:
+        image_paths (list[str], optional): List of slide paths. Defaults to latest carousel folder if None.
+        caption (str, optional): Caption text for carousel post.
+        music_recommendation (str, optional): Suggested track recommendation.
+
+    Returns:
+        dict: Buffer API response payload.
+==============================================================================="""
+def publish_carousel_post(image_paths: list[str] = None, caption: str = "", music_recommendation: str = None):
+    """Workflow function to upload multiple image paths and publish a Carousel post via Buffer."""
+    if not image_paths:
+        image_paths = get_latest_carousel_images()
+
+    logger.info(f"Starting publish workflow for carousel post ({len(image_paths)} images)...")
+    public_urls = [upload_local_image_temp(img_path) for img_path in image_paths]
+
+    # Actively verify CDN readiness before making the GraphQL call
+    wait_for_cloudinary_urls(public_urls)
+
+    response = post_image_to_buffer(public_urls, caption, music_recommendation=music_recommendation)
     return response
 
 
 if __name__ == "__main__":
-    caption_text = "Daily Whisper ✨ - Automated Post"
-    music_track = "Malcolm Todd - Gene Skirt"  # Local Testing Only. Will not be used as part of a flow
-    result = publish_latest_single_image(caption_text, music_recommendation=music_track)
+    caption_text = "Daily Whisper ✨ - Automated Carousel Post"
+    music_track = "Keep Your Head Up - Ben Howard"
+    
+    # Test publishing the latest generated carousel folder
+    result = publish_carousel_post(caption=caption_text, music_recommendation=music_track)
     print("Buffer Response:", result)

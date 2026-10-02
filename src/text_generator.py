@@ -1,3 +1,9 @@
+"""===============================================================================
+Module: text_generator.py
+Description: Generates structured quote and script data for short-form video 
+             content using the Gemini API based on customizable thematic constraints
+             and JSON output formatting.
+==============================================================================="""
 import json
 import os
 import re
@@ -12,7 +18,26 @@ from google.genai.errors import APIError, ServerError
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
+"""===============================================================================
+    Generates structured script payloads containing quotes broken into narrative segments.
 
+    Args:
+        selected_theme (str, optional): Thematic guideline for content generation.
+                                         Defaults to "Inspirational & Uplifting".
+
+    Returns:
+        dict: Parsed JSON dictionary matching the generated schema:
+            {
+                "sub_genre": str,
+                "inspiring_quote": str,
+                "sentences": list[str]
+            }
+
+    Raises:
+        ValueError: If neither GEMINI_API_KEY nor GOOGLE_API_KEY is defined in environment variables.
+        RuntimeError: If all API retry attempts fail to return valid content.
+        json.JSONDecodeError: If the model response cannot be parsed into valid JSON after sanitization.
+==============================================================================="""
 def generate_vibe_and_text(selected_theme="Inspirational & Uplifting"):
   api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
   if not api_key:

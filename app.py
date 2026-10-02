@@ -4,7 +4,8 @@ import gradio as gr
 from src.image_generator import generate_images_for_quote
 from src.text_generator import generate_vibe_and_text
 from src.single_image_generator import generate_single_image_post
-from src.Publish_IG_Post import publish_latest_single_image
+from src.multi_slide_carousel_generator import generate_multi_slide_carousel
+from src.Publish_IG_Post import publish_latest_single_image, publish_carousel_post
 
 # Define project base path and local asset paths
 BASE_DIR = Path(__file__).parent
@@ -127,6 +128,19 @@ div[class*="block"] {
     pointer-events: none;
 }
 
+#format-carousel-card::after {
+    content: "Carousel";
+    position: absolute;
+    top: 3px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: #000000 !important;
+    font-weight: 700 !important;
+    font-size: 11px !important;
+    pointer-events: none;
+}
+
 #format-short-card::after {
     content: "Short";
     position: absolute;
@@ -174,9 +188,9 @@ div[class*="block"] {
     margin-right: auto !important;
 }
 
-.single-image-gallery img {
-    max-height: 400px !important;
-    object-fit: contain !important;
+.carousel-gallery {
+    width: 100% !important;
+    max-width: 100% !important;
 }
 
 .short-flow-gallery {
@@ -191,7 +205,7 @@ div[class*="block"] {
     width: 100% !important;
 }
 
-.short-flow-gallery img {
+.short-flow-gallery img, .carousel-gallery img {
     width: 100% !important;
     max-height: 380px !important;
     object-fit: contain !important;
@@ -205,7 +219,7 @@ def select_format_step(selected_format):
 
 def on_theme_click(theme_selection, output_format, progress=gr.Progress()):
     if output_format == "Single Image":
-        progress(0.4, desc="Generating quote, explanation, hashtags, music & image...")
+        progress(0.4, desc="Generating single image post...")
         image_path, sentence, explanation, hashtags, music_recommendation = generate_single_image_post(theme_selection)
 
         status = (
@@ -224,9 +238,41 @@ def on_theme_click(theme_selection, output_format, progress=gr.Progress()):
             hashtags,
             music_recommendation,
             [sentence],
+            [image_path],
             gr.update(visible=False),
             gr.update(visible=True),
             gr.update(value=[image_path], columns=1, elem_classes=["single-image-gallery"], visible=True),
+            ""
+        )
+    elif output_format == "Multi-Slide Carousel":
+        progress(0.3, desc="Generating multi-slide carousel images & narrative quotes...")
+        image_paths, slide_quotes, explanation, hashtags, music_recommendation = generate_multi_slide_carousel(
+            theme=theme_selection, num_slides=4
+        )
+
+        combined_sentence = " | ".join(slide_quotes)
+        formatted_quotes = "\n".join([f"- **Slide {i+1}:** \"{q}\"" for i, q in enumerate(slide_quotes)])
+
+        status = (
+            f"### Theme: {theme_selection} (Multi-Slide Carousel)\n\n"
+            f"**Slide Quotes:**\n{formatted_quotes}\n\n"
+            f"**Caption Explanation:**\n{explanation}\n\n"
+            f"**Suggested Audio:** {music_recommendation}\n\n"
+            f"**Hashtags:** {hashtags}"
+        )
+
+        progress(1.0, desc="Carousel Ready!")
+        return (
+            status,
+            combined_sentence,
+            explanation,
+            hashtags,
+            music_recommendation,
+            slide_quotes,
+            image_paths,
+            gr.update(visible=False),
+            gr.update(visible=True),
+            gr.update(value=image_paths, columns=len(image_paths), elem_classes=["carousel-gallery"], visible=True),
             ""
         )
     else:
@@ -254,6 +300,7 @@ def on_theme_click(theme_selection, output_format, progress=gr.Progress()):
             "",
             "",
             sentences,
+            [],
             gr.update(visible=True),
             gr.update(visible=False),
             gr.update(visible=False),
@@ -265,7 +312,7 @@ def step2_generate_images(quote, sentences, progress=gr.Progress()):
     if not quote:
         return gr.update()
 
-    progress(0.2, desc="Generating 4 narrative visual prompts...")
+    progress(0.2, desc="Generating narrative visual prompts...")
     progress(0.5, desc="Creating images via Gemini...")
     image_paths = generate_images_for_quote(quote, sentences)
 
@@ -274,11 +321,19 @@ def step2_generate_images(quote, sentences, progress=gr.Progress()):
     return gr.update(value=image_paths, columns=4, elem_classes=["short-flow-gallery"], visible=True)
 
 
-def handle_publish_to_instagram(sentence: str, explanation: str, hashtags: str, music_recommendation: str, progress=gr.Progress()):
-    if not sentence:
-        return "❌ **Error:** No sentence/caption available to publish."
+def handle_publish_to_instagram(
+    selected_format: str,
+    sentence: str,
+    explanation: str,
+    hashtags: str,
+    music_recommendation: str,
+    image_paths: list[str],
+    progress=gr.Progress(),
+):
+    if not sentence or not image_paths:
+        return "❌ **Error:** Missing quote or image paths to publish."
 
-    progress(0.3, desc="Uploading image temporarily...")
+    progress(0.3, desc="Uploading image(s)...")
     progress(0.7, desc="Sending post request to Buffer API...")
 
     if explanation and hashtags:
@@ -286,7 +341,14 @@ def handle_publish_to_instagram(sentence: str, explanation: str, hashtags: str, 
     else:
         caption_text = f"{sentence}\n\n✨ #thisisdailywhisper #inspiration #motivation"
 
-    res = publish_latest_single_image(caption_text)
+    if selected_format == "Multi-Slide Carousel":
+        # Call carousel publisher if available, otherwise fallback/use multi-image publish
+        if "publish_carousel_post" in globals():
+            res = publish_carousel_post(image_paths, caption_text)
+        else:
+            res = publish_latest_single_image(caption_text)
+    else:
+        res = publish_latest_single_image(caption_text)
 
     post_data = res.get("data", {}).get("createPost", {})
     if "post" in post_data:
@@ -308,10 +370,12 @@ with gr.Blocks(title="ETVibes Content Generator") as demo:
     state_hashtags = gr.State("")
     state_music = gr.State("")
     state_sentences = gr.State([])
+    state_image_paths = gr.State([])
 
     gr.Markdown("### Select Format")
     with gr.Row():
         single_img_btn = gr.Button(value="", elem_classes=["format-card-btn"], elem_id="format-single-card")
+        carousel_btn = gr.Button(value="", elem_classes=["format-card-btn"], elem_id="format-carousel-card")
         short_btn = gr.Button(value="", elem_classes=["format-card-btn"], elem_id="format-short-card")
 
     with gr.Column(visible=False) as theme_section:
@@ -341,6 +405,7 @@ with gr.Blocks(title="ETVibes Content Generator") as demo:
 
     card_styles = f"""
     #format-single-card {{ background-image: url('{insta_single_b64}') !important; }}
+    #format-carousel-card {{ background-image: url('{insta_single_b64}') !important; }}
     #format-short-card {{ background-image: url('{insta_short_b64}') !important; }}
     #inspirational-card {{ background-image: url('{inspirational_b64}') !important; }}
     #romance-card {{ background-image: url('{romance_b64}') !important; }}
@@ -351,6 +416,10 @@ with gr.Blocks(title="ETVibes Content Generator") as demo:
         fn=select_format_step, inputs=[selected_format], outputs=[selected_format, theme_section]
     )
 
+    carousel_btn.click(fn=lambda: "Multi-Slide Carousel", outputs=[selected_format]).then(
+        fn=select_format_step, inputs=[selected_format], outputs=[selected_format, theme_section]
+    )
+
     short_btn.click(fn=lambda: "Short", outputs=[selected_format]).then(
         fn=select_format_step, inputs=[selected_format], outputs=[selected_format, theme_section]
     )
@@ -358,26 +427,26 @@ with gr.Blocks(title="ETVibes Content Generator") as demo:
     inspirational_btn.click(fn=lambda: "Inspirational & Uplifting", outputs=[selected_theme]).then(
         fn=on_theme_click,
         inputs=[selected_theme, selected_format],
-        outputs=[output_text, state_quote, state_explanation, state_hashtags, state_music, state_sentences, approval_row, single_image_pub_row, output_gallery, publish_status],
+        outputs=[output_text, state_quote, state_explanation, state_hashtags, state_music, state_sentences, state_image_paths, approval_row, single_image_pub_row, output_gallery, publish_status],
     )
 
     romance_btn.click(fn=lambda: "Love & Romance", outputs=[selected_theme]).then(
         fn=on_theme_click,
         inputs=[selected_theme, selected_format],
-        outputs=[output_text, state_quote, state_explanation, state_hashtags, state_music, state_sentences, approval_row, single_image_pub_row, output_gallery, publish_status],
+        outputs=[output_text, state_quote, state_explanation, state_hashtags, state_music, state_sentences, state_image_paths, approval_row, single_image_pub_row, output_gallery, publish_status],
     )
 
     regenerate_btn.click(
         fn=on_theme_click,
         inputs=[selected_theme, selected_format],
-        outputs=[output_text, state_quote, state_explanation, state_hashtags, state_music, state_sentences, approval_row, single_image_pub_row, output_gallery, publish_status],
+        outputs=[output_text, state_quote, state_explanation, state_hashtags, state_music, state_sentences, state_image_paths, approval_row, single_image_pub_row, output_gallery, publish_status],
     )
 
     approve_btn.click(fn=step2_generate_images, inputs=[state_quote, state_sentences], outputs=[output_gallery])
 
     publish_ig_btn.click(
         fn=handle_publish_to_instagram,
-        inputs=[state_quote, state_explanation, state_hashtags, state_music],
+        inputs=[selected_format, state_quote, state_explanation, state_hashtags, state_music, state_image_paths],
         outputs=[publish_status],
     )
 

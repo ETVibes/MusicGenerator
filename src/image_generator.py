@@ -1,3 +1,12 @@
+"""
+===============================================================================
+Module: image_generator.py
+Description: Handles AI visual prompt generation and image rendering workflow.
+             Analyzes thematic quotes using Gemini text models to generate 4-scene
+             storyboard prompts, formats aesthetic parameters, and produces 9:16
+             vertical graphics via the Gemini image generation API.
+==============================================================================="""
+
 import json
 import os
 import re
@@ -12,7 +21,15 @@ from google.genai import types
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
+"""===============================================================================
+    Initializes and returns the standard Google GenAI API client instance.
 
+    Returns:
+        genai.Client: Authenticated Google GenAI client object.
+
+    Raises:
+        ValueError: If neither GEMINI_API_KEY nor GOOGLE_API_KEY is found in .env.
+==============================================================================="""
 def get_client() -> genai.Client:
     """Initializes standard Google AI Studio client using GEMINI_API_KEY."""
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
@@ -20,7 +37,16 @@ def get_client() -> genai.Client:
         raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY missing in .env file.")
     return genai.Client(api_key=api_key)
 
+"""===============================================================================
+    Analyzes a quote's story arc and generates exactly 4 distinct visual scene descriptions
+    for short video content framing.
 
+    Args:
+        quote (str): The inspirational or thematic quote string to analyze.
+
+    Returns:
+        List[str]: A list containing exactly 4 visual scene description strings.
+==============================================================================="""
 def generate_visual_prompts_from_quote(quote: str) -> List[str]:
     """Analyzes the quote story/energy and returns EXACTLY 4 distinct visual scene descriptions."""
     client = get_client()
@@ -84,7 +110,17 @@ def generate_visual_prompts_from_quote(quote: str) -> List[str]:
 
     return visual_descriptions[:4]
 
+"""===============================================================================
+    Combines a raw scene description with photographic style rules and negative cues.
 
+    Args:
+        scene_description (str): Concrete visual description of the scene.
+        global_style (str, optional): Overriding visual style directives. 
+                                     Defaults to standard cinematic 35mm photography aesthetic.
+
+    Returns:
+        str: Fully formatted image generation prompt string.
+==============================================================================="""
 def format_final_image_prompt(scene_description: str, global_style: str = "") -> str:
     if not global_style:
         global_style = "Cinematic film photography, 35mm lens depth of field, soft natural lighting, warm color grading, 9:16 vertical framing, ultra-detailed, 8k resolution"
@@ -92,7 +128,17 @@ def format_final_image_prompt(scene_description: str, global_style: str = "") ->
     negative_cues = "no text overlay, no watermarks, no UI buttons, no split screen, no blur"
     return f"Subject: {scene_description}. Aesthetic: {global_style}. Avoid: {negative_cues}."
 
+"""===============================================================================
+    Generates 4 scene prompts matching a quote's vibe and renders 4 corresponding
+    vertical images using the Gemini image model with retry logic.
 
+    Args:
+        quote (str): Input quote string to visualize.
+        sentences (List[str], optional): Optional list of broken-down sentences (unused fallback).
+
+    Returns:
+        List[str]: Filepaths of all successfully generated and saved image files.
+==============================================================================="""
 def generate_images_for_quote(quote: str, sentences: List[str] = None) -> List[str]:
     """Generates 4 scene prompts matching the quote's story/vibe and creates 4 images via gemini-2.5-flash-image with retries."""
     print("Analyzing quote narrative for 4 visual scenes...")
