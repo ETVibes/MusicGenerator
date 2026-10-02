@@ -1,6 +1,13 @@
+"""===============================================================================
+Module: automation_pipeline.py
+Description: Automated CLI pipeline for generating and publishing Instagram posts
+             (single-image or multi-slide carousels) using Gemini generative AI
+             models, local file management, and the Buffer GraphQL API.
+==============================================================================="""
 import argparse
 import os
 import sys
+import random
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -16,9 +23,24 @@ except ImportError as e:
     print(f"❌ Error importing project modules: {e}")
     sys.exit(1)
 
+"""===============================================================================
+    Automates the full content lifecycle: theme selection, media and caption generation
+    via Gemini, and post submission to Instagram via the Buffer API.
 
+    Args:
+        theme (str, optional): Overrides theme choice. Defaults to a random theme if None.
+        mode (str, optional): Post mode ("single" or "carousel"). If None, randomly picks one.
+        num_slides (int, optional): Number of carousel slides if mode is "carousel". Defaults to 4.
+
+    Raises:
+        SystemExit: Exits script with code 1 if content generation or Buffer publishing fails.
+==============================================================================="""
 def run_auto_publish(theme: str = None, mode: str = "single", num_slides: int = 4):
-    """Automates image generation and Instagram publishing with detailed CLI logs."""
+
+    # 0. Mode Selection (Randomize if not explicitly passed)
+    if not mode:
+        mode = random.choice(["single", "carousel"])
+        
     print("=" * 60)
     print(f"🚀 STARTING AUTOMATED INSTAGRAM PUBLISH JOB [{mode.upper()} MODE]")
     print("=" * 60)
@@ -28,10 +50,11 @@ def run_auto_publish(theme: str = None, mode: str = "single", num_slides: int = 
         theme = get_random_theme()
     print(f"\n[STEP 1/3] Selected Theme: '{theme}'")
 
-    # 2. Generate Content
+    # 2. Generate Content via Gemini
     print(f"[STEP 2/3] Generating {mode} post content via Gemini...")
     try:
         if mode == "carousel":
+            # Generate multi-slide images and narrative text payload
             image_paths, slide_quotes, explanation, hashtags, music_recommendation = (
                 generate_multi_slide_carousel(theme=theme, num_slides=num_slides)
             )
@@ -41,6 +64,7 @@ def run_auto_publish(theme: str = None, mode: str = "single", num_slides: int = 
             for idx, p in enumerate(image_paths, 1):
                 print(f"     Slide {idx}: {p}")
         else:
+            # Generate single image/panel and post text payload
             image_path, headline, explanation, hashtags, music_recommendation = (
                 generate_single_image_post(theme)
             )
