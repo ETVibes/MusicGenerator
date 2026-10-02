@@ -65,6 +65,7 @@ def get_random_style() -> str:
     """Returns a random visual style prompt selected across expanded aesthetic categories."""
     categories = [
         "realistic_photography",
+        "realistic_animation",  # <-- Added realistic animation category
         "digital_art_anime",
         "vintage_retro",
         "minimalist_fine_art",
@@ -72,7 +73,17 @@ def get_random_style() -> str:
     ]
     chosen_category = random.choice(categories)
 
-    if chosen_category == "realistic_photography":
+    if chosen_category == "realistic_animation":
+        styles = [
+            "hyper-realistic 3D animation style, Pixar-like photorealistic character rendering with soft cinematic lighting and sub-surface scattering",
+            "realistic 3D digital render with lifelike textures, soft ambient occlusion, and subtle depth of field",
+            "cinematic CGI animation style with realistic cloth physics, natural skin texture, and soft volumetric lighting",
+            "photorealistic stylized 3D render, soft warm studio illumination, lifelike hair detail, and cinematic atmospheric depth",
+            "realistic animated feature film aesthetic with soft golden hour lighting, clean edge definition, and photorealistic environment textures",
+        ]
+        return f"A realistic animation style: {random.choice(styles)}"
+
+    elif chosen_category == "realistic_photography":
         styles = [
             "cinematic 35mm photography with soft natural lighting and golden hour tones",
             "candid high-resolution portrait photo with soft bokeh and shallow depth of field",
