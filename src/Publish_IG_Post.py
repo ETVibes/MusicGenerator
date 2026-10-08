@@ -13,7 +13,14 @@ import re
 import time
 import requests
 from dotenv import load_dotenv
-from moviepy import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip
+from moviepy.editor import (
+    VideoFileClip, 
+    AudioFileClip, 
+    TextClip, 
+    CompositeVideoClip, 
+    ImageClip, 
+    concatenate_videoclips
+)
 
 # Configure logging format
 logging.basicConfig(
