@@ -21,6 +21,7 @@ from moviepy import (
     TextClip,
     CompositeVideoClip,
     ImageClip,
+    ColorClip,
     concatenate_videoclips,
     vfx
 )
@@ -121,9 +122,9 @@ def convert_latest_carousel_to_mp4(
         clip = ImageClip(slide_path).with_duration(slide_duration)
         
         if clip.w / clip.h <= 9 / 16:
-            clip_resized = clip.resized(height=1920)
+            clip_resized = clip.with_effects([vfx.resize(height=1920)])
         else:
-            clip_resized = clip.resized(width=1080)
+            clip_resized = clip.with_effects([vfx.resize(height=1080)])
 
         # Centered canvas composition using CompositeVideoClip
         background = ColorClip(size=(1080, 1920), color=(18, 18, 18)).with_duration(slide_duration)
@@ -171,9 +172,9 @@ def convert_latest_image_to_mp4(
     clip = ImageClip(str(latest_image_path)).with_duration(duration)
 
     if clip.w / clip.h <= 9 / 16:
-        clip_resized = clip.resized(height=1920)
+        clip_resized = clip.with_effects([vfx.resize(height=1920)])
     else:
-        clip_resized = clip.resized(width=1080)
+        clip_resized = clip.with_effects([vfx.resize(height=1080)])
 
     background = ColorClip(size=(1080, 1920), color=(18, 18, 18)).with_duration(duration)
     final_clip = CompositeVideoClip([background, clip_resized.with_position("center")])
