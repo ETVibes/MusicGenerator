@@ -13,13 +13,16 @@ import re
 import time
 import requests
 from dotenv import load_dotenv
-from moviepy.editor import (
-    VideoFileClip, 
-    AudioFileClip, 
-    TextClip, 
-    CompositeVideoClip, 
-    ImageClip, 
-    concatenate_videoclips
+
+# Updated imports for MoviePy v2.x compatibility
+from moviepy import (
+    VideoFileClip,
+    AudioFileClip,
+    TextClip,
+    CompositeVideoClip,
+    ImageClip,
+    concatenate_videoclips,
+    vfx
 )
 
 # Configure logging format
@@ -43,7 +46,6 @@ CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 BASE_DIR = Path(__file__).resolve().parent.parent
 SINGLE_IMAGE_DIR = BASE_DIR / "output" / "Single_Image"
 CAROUSEL_DIR = BASE_DIR / "output" / "Carousel_Posts"
-# Directory where output video reels will be saved
 REELS_OUTPUT_DIR = BASE_DIR / "output" / "Reels"
 
 
@@ -65,18 +67,6 @@ def sanitize_caption_for_instagram(caption: str, max_hashtags: int = 5) -> str:
     return caption
 
 
-"""===============================================================================
-    Finds the most recently modified image (.jpg, .jpeg, .png) in the specified directory.
-
-    Args:
-        folder_path (Path): Path directory to search for images.
-
-    Returns:
-        str: Absolute file path string of the most recent image.
-
-    Raises:
-        FileNotFoundError: If no image files matching supported extensions exist in folder_path.
-==============================================================================="""
 def get_latest_image(folder_path: Path) -> str:
     """Finds the most recently modified image (.jpg, .jpeg, .png) in the specified directory."""
     folder_path = Path(folder_path)
@@ -94,23 +84,6 @@ def get_latest_image(folder_path: Path) -> str:
     return latest_file
 
 
-"""===============================================================================
-    Finds the most recently created carousel folder, reads all slide images,
-    formats each to a 1080x1920 canvas, concatenates them sequentially, 
-    and exports a single MP4 video file.
-
-    Args:
-        base_carousel_dir (Path, optional): Directory containing timestamped carousel folders.
-                                            Defaults to CAROUSEL_DIR.
-        slide_duration (float, optional): Seconds to display each carousel slide. Defaults to 3.0.
-        fps (int, optional): Frames per second for the output MP4. Defaults to 30.
-
-    Returns:
-        str: Absolute file path string to the generated MP4 reel video file.
-
-    Raises:
-        FileNotFoundError: If carousel folder or images do not exist.
-==============================================================================="""
 def convert_latest_carousel_to_mp4(
     base_carousel_dir: Path = CAROUSEL_DIR, 
     slide_duration: float = 3.0, 
@@ -122,17 +95,14 @@ def convert_latest_carousel_to_mp4(
         logger.error(f"Carousel directory does not exist: {base_carousel_dir}")
         raise FileNotFoundError(f"Carousel directory does not exist: {base_carousel_dir}")
 
-    # 1. Find all carousel subdirectories
     subdirs = [p for p in base_carousel_dir.iterdir() if p.is_dir()]
     if not subdirs:
         logger.error(f"No carousel folders found in {base_carousel_dir}")
         raise FileNotFoundError(f"No carousel folders found in {base_carousel_dir}")
 
-    # Select the most recent carousel directory
     latest_folder = max(subdirs, key=os.path.getmtime)
     logger.info(f"Selected latest carousel folder: {latest_folder}")
 
-    # 2. Fetch and sort all slide image files
     extensions = ("*.jpg", "*.jpeg", "*.png")
     image_files = []
     for ext in extensions:
@@ -145,24 +115,23 @@ def convert_latest_carousel_to_mp4(
     sorted_slides = sorted(image_files)
     logger.info(f"Found {len(sorted_slides)} slides. Processing into video sequence...")
 
-    # 3. Process each image into a formatted clip
     clips = []
     for slide_path in sorted_slides:
-        clip = ImageClip(slide_path).set_duration(slide_duration)
+        # Updated to MoviePy 2.x syntax: with_duration() and resized()
+        clip = ImageClip(slide_path).with_duration(slide_duration)
         
-        # Fit to 1080x1920 (9:16 aspect ratio)
-        clip_resized = clip.resize(height=1920) if clip.w / clip.h <= 9/16 else clip.resize(width=1080)
-        final_slide = clip_resized.on_color(
-            size=(1080, 1920), 
-            color=(18, 18, 18),  # Dark background fill
-            pos="center"
-        )
+        if clip.w / clip.h <= 9 / 16:
+            clip_resized = clip.resized(height=1920)
+        else:
+            clip_resized = clip.resized(width=1080)
+
+        # Centered canvas composition using CompositeVideoClip
+        background = ColorClip(size=(1080, 1920), color=(18, 18, 18)).with_duration(slide_duration)
+        final_slide = CompositeVideoClip([background, clip_resized.with_position("center")])
         clips.append(final_slide)
 
-    # 4. Concatenate all slide clips into a single video stream
     final_carousel_clip = concatenate_videoclips(clips, method="compose")
 
-    # 5. Render output file
     REELS_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output_mp4_path = REELS_OUTPUT_DIR / f"{latest_folder.name}_carousel_reel.mp4"
 
@@ -177,7 +146,6 @@ def convert_latest_carousel_to_mp4(
         logger=None
     )
 
-    # Clean up MoviePy resources
     final_carousel_clip.close()
     for c in clips:
         c.close()
@@ -186,55 +154,39 @@ def convert_latest_carousel_to_mp4(
     return str(output_mp4_path)
 
 
-"""===============================================================================
-    Retrieves the most recent single image, scales and centers it onto a 
-    1080x1920 (9:16) vertical canvas, and renders it as an MP4 Reel video file.
-
-    Args:
-        image_dir (Path): Directory containing input image files. Defaults to SINGLE_IMAGE_DIR.
-        duration (int): Duration of output MP4 video in seconds. Defaults to 7.
-        fps (int): Frames per second for output MP4 video. Defaults to 30.
-
-    Returns:
-        str: Absolute file path string to generated MP4 video file.
-==============================================================================="""
 def convert_latest_image_to_mp4(
     image_dir: Path = SINGLE_IMAGE_DIR, 
     duration: int = 7, 
     fps: int = 30
 ) -> str:
-    # 1. Fetch latest image path using existing utility function
     latest_image_path = get_latest_image(image_dir)
     image_path_obj = Path(latest_image_path)
     
-    # 2. Ensure output directory exists
     REELS_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output_mp4_path = REELS_OUTPUT_DIR / f"{image_path_obj.stem}_reel.mp4"
 
     logger.info(f"Converting latest image '{image_path_obj.name}' to MP4 (9:16, {duration}s)...")
 
-    # 3. Create video clip from image
-    clip = ImageClip(str(latest_image_path)).set_duration(duration)
+    # Updated to MoviePy 2.x syntax
+    clip = ImageClip(str(latest_image_path)).with_duration(duration)
 
-    # 4. Format canvas to 1080x1920 (Reels standard 9:16 aspect ratio)
-    clip_resized = clip.resize(height=1920) if clip.w / clip.h <= 9/16 else clip.resize(width=1080)
-    final_clip = clip_resized.on_color(
-        size=(1080, 1920), 
-        color=(18, 18, 18),  # Dark background fill
-        pos="center"
-    )
+    if clip.w / clip.h <= 9 / 16:
+        clip_resized = clip.resized(height=1920)
+    else:
+        clip_resized = clip.resized(width=1080)
 
-    # 5. Render output video file
+    background = ColorClip(size=(1080, 1920), color=(18, 18, 18)).with_duration(duration)
+    final_clip = CompositeVideoClip([background, clip_resized.with_position("center")])
+
     final_clip.write_videofile(
         str(output_mp4_path),
         fps=fps,
         codec="libx264",
         audio=False,
         preset="medium",
-        logger=None  # Suppresses raw moviepy progress log spam
+        logger=None
     )
 
-    # Clean up MoviePy resources
     final_clip.close()
     clip.close()
 
@@ -242,18 +194,6 @@ def convert_latest_image_to_mp4(
     return str(output_mp4_path)
 
 
-"""===============================================================================
-    Uploads a local media file (image or video) to Cloudinary to generate a public HTTPS URL required by Buffer.
-
-    Args:
-        file_path (str): Local path to image or video file (.mp4, .mov, .jpg, .png).
-
-    Returns:
-        str: Public HTTPS URL string generated by Cloudinary.
-
-    Raises:
-        Exception: If Cloudinary credentials fail, connection drops, or URL is omitted from response.
-==============================================================================="""
 def upload_local_media_temp(file_path: str) -> str:
     """Uploads a local media file (image or video) to Cloudinary to generate a public HTTPS URL required by Buffer."""
     import cloudinary
@@ -268,7 +208,6 @@ def upload_local_media_temp(file_path: str) -> str:
         secure=True,
     )
 
-    # Detect if file is a video based on extension
     is_video = str(file_path).lower().endswith((".mp4", ".mov", ".avi", ".mkv"))
     resource_type = "video" if is_video else "image"
 
@@ -291,19 +230,8 @@ def upload_local_media_temp(file_path: str) -> str:
         raise e
 
 
-"""===============================================================================
-    Polls Cloudinary URLs via HTTP HEAD requests until they return 200 OK and are cached on CDN.
-
-    Args:
-        urls (list[str]): List of HTTPS image URLs to check.
-        timeout (int, optional): Maximum seconds to wait before timing out. Defaults to 15.
-        poll_interval (float, optional): Interval in seconds between checks. Defaults to 0.5.
-
-    Returns:
-        bool: True if all URLs responded with 200 OK within timeout, False otherwise.
-==============================================================================="""
 def wait_for_cloudinary_urls(urls: list[str], timeout: int = 15, poll_interval: float = 0.5) -> bool:
-    """Polls Cloudinary URLs via HTTP HEAD requests until they return 200 OK and are fully cached on CDN."""
+    """Polls Cloudinary URLs via HTTP HEAD requests until they return 200 OK and are cached on CDN."""
     start_time = time.time()
     pending_urls = list(urls)
 
@@ -329,20 +257,6 @@ def wait_for_cloudinary_urls(urls: list[str], timeout: int = 15, poll_interval: 
     return True
 
 
-"""===============================================================================
-    Sends hosted image URLs and metadata payload to Buffer GraphQL API.
-
-    Args:
-        image_urls (list[str]): Public HTTPS image URLs to attach to post.
-        caption (str): Main post text caption.
-        music_recommendation (str, optional): Suggested track to append to caption text.
-
-    Returns:
-        dict: Parsed JSON response dictionary returned by Buffer GraphQL endpoint.
-
-    Raises:
-        Exception: If network connection fails or HTTP response payload cannot be parsed.
-==============================================================================="""
 def post_image_to_buffer(image_urls: list[str], caption: str, music_recommendation: str = None) -> dict:
     """Sends hosted image URLs and metadata payload to Buffer GraphQL API."""
     mutation = """
@@ -365,10 +279,7 @@ def post_image_to_buffer(image_urls: list[str], caption: str, music_recommendati
     if music_recommendation:
         final_caption = f"{caption}\n\n🎵 Suggested Track: {music_recommendation}"
 
-    # Ensure hashtags stay within the 5-hashtag Instagram limit
     final_caption = sanitize_caption_for_instagram(final_caption)
-
-    # Standard AssetInput array with multiple image URLs
     assets = [{"image": {"url": url}} for url in image_urls]
 
     variables = {
@@ -376,7 +287,7 @@ def post_image_to_buffer(image_urls: list[str], caption: str, music_recommendati
             "channelId": BUFFER_CHANNEL_ID,
             "text": final_caption,
             "schedulingType": "automatic",
-            "mode": "addToQueue",  # Queues post for immediate background container assembly & publication
+            "mode": "addToQueue",
             "assets": assets,
             "metadata": {
                 "instagram": {
@@ -418,17 +329,6 @@ def post_image_to_buffer(image_urls: list[str], caption: str, music_recommendati
         raise e
 
 
-"""===============================================================================
-    Sends hosted video URL and metadata payload to Buffer GraphQL API as an Instagram Reel.
-
-    Args:
-        video_url (str): Public HTTPS video URL to attach to Reel post.
-        caption (str): Main post text caption.
-        music_recommendation (str, optional): Suggested track to append to caption text.
-
-    Returns:
-        dict: Parsed JSON response dictionary returned by Buffer GraphQL endpoint.
-==============================================================================="""
 def post_reel_to_buffer(video_url: str, caption: str, music_recommendation: str = None) -> dict:
     """Sends hosted video URL and metadata payload to Buffer GraphQL API as an Instagram Reel."""
     mutation = """
@@ -451,7 +351,6 @@ def post_reel_to_buffer(video_url: str, caption: str, music_recommendation: str 
     if music_recommendation:
         final_caption = f"{caption}\n\n🎵 Suggested Track: {music_recommendation}"
 
-    # Ensure hashtags stay within the 5-hashtag Instagram limit
     final_caption = sanitize_caption_for_instagram(final_caption)
 
     variables = {
@@ -492,44 +391,21 @@ def post_reel_to_buffer(video_url: str, caption: str, music_recommendation: str 
         raise e
 
 
-"""===============================================================================
-    Main workflow function to fetch local image, upload, and publish single post via Buffer.
-
-    Args:
-        caption (str): Caption text for single image post.
-        music_recommendation (str, optional): Suggested track recommendation.
-
-    Returns:
-        dict: Buffer API response payload.
-==============================================================================="""
 def publish_latest_single_image(caption: str, music_recommendation: str = None):
     """Main workflow function to fetch local image, upload, and publish single post via Buffer."""
     logger.info("Starting publish workflow for single image...")
     local_image_path = get_latest_image(SINGLE_IMAGE_DIR)
     public_image_url = upload_local_media_temp(local_image_path)
     
-    # Check CDN availability
     wait_for_cloudinary_urls([public_image_url])
     
     response = post_image_to_buffer([public_image_url], caption, music_recommendation=music_recommendation)
     return response
 
 
-"""===============================================================================
-    Workflow function to upload multiple image paths and publish a Carousel post via Buffer.
-
-    Args:
-        media_paths (list[str], optional): List of slide image paths. Defaults to latest carousel folder if None.
-        caption (str, optional): Caption text for carousel post.
-        music_recommendation (str, optional): Suggested track recommendation.
-
-    Returns:
-        dict: Buffer API response payload.
-==============================================================================="""
 def publish_carousel_post(media_paths: list[str] = None, caption: str = "", music_recommendation: str = None):
     """Workflow function to upload multiple image paths and publish a Carousel post via Buffer."""
     if not media_paths:
-        # Discover latest carousel folder images
         base_dir = Path(CAROUSEL_DIR)
         subdirs = [p for p in base_dir.iterdir() if p.is_dir()]
         if not subdirs:
@@ -546,24 +422,12 @@ def publish_carousel_post(media_paths: list[str] = None, caption: str = "", musi
     logger.info(f"Starting publish workflow for carousel post ({len(media_paths)} images)...")
     public_urls = [upload_local_media_temp(img_path) for img_path in media_paths]
 
-    # Actively verify CDN readiness before making the GraphQL call
     wait_for_cloudinary_urls(public_urls)
 
     response = post_image_to_buffer(public_urls, caption, music_recommendation=music_recommendation)
     return response
 
 
-"""===============================================================================
-    Workflow function to convert latest carousel slides into an MP4 video and publish as an Instagram Reel.
-
-    Args:
-        caption (str, optional): Caption text for Reel post.
-        music_recommendation (str, optional): Suggested track recommendation.
-        slide_duration (float, optional): Display time per slide in seconds. Defaults to 3.0.
-
-    Returns:
-        dict: Buffer API response payload.
-==============================================================================="""
 def publish_carousel_as_reel(caption: str = "", music_recommendation: str = None, slide_duration: float = 3.0):
     """Workflow function to convert latest carousel slides into an MP4 video and publish as an Instagram Reel."""
     logger.info("Starting publish workflow for Carousel Reel...")
@@ -578,6 +442,5 @@ if __name__ == "__main__":
     caption_text = "Daily Whisper ✨ - Automated Carousel Post #dailywhisper #quotes #mindfulness #positivity #peace"
     music_track = "Keep Your Head Up - Ben Howard"
     
-    # Test publishing the latest generated carousel folder as native Carousel images
     result = publish_carousel_post(caption=caption_text, music_recommendation=music_track)
     print("Buffer Response:", result)
