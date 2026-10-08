@@ -96,7 +96,7 @@ def generate_single_image_post(
 
         image_prompt = (
             f"{chosen_style} inspired by the theme '{active_theme}'. "
-            f"Featuring {character_desc} {get_emotional_visual_modifier()} in a scene that visually captures the emotional meaning of: '{short_sentence}'. "
+            f"Featuring {character_desc} {get_emotional_visual_modifier()} in a scene that visually captures the emotional meaning of: '{explanation}'. "
             f"{POSE_CONSTRAINT} "
             f"The text '{short_sentence}' is overlayed clearly in elegant typography with high contrast."
         )
@@ -154,6 +154,7 @@ def generate_single_image_post(
             f"{chosen_style} structured as a single image with a {layout_type} themed around '{active_theme}'. "
             f"MAIN SUBJECT: {character_desc}, {get_emotional_visual_modifier()}. "
             f"STRICT REQUIREMENT: {subject_instruction} "
+            f"VISUAL NARRATIVE: Illustrate a scene reflecting the story and context of: '{explanation}'. "
             f"{POSE_CONSTRAINT} "
             f"{story_instructions} "
             f"Ensure clean horizontal panel borders and high contrast legibility for text."
