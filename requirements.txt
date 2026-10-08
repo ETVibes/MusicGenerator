@@ -4,5 +4,5 @@ python-dotenv
 pillow
 requests
 cloudinary
-moviepy<2.0.0
+moviepy
 imageio[ffmpeg]
