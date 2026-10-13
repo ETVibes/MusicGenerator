@@ -44,7 +44,7 @@ from .prompt_config import (
 ==============================================================================="""
 def generate_single_image_post(
     theme: str = None, force_panels: int = None
-) -> tuple[str, str, str, str, str]:
+) -> tuple[str, str, str, str, str, str]:
     """Generates an Instagram post image, quote, explanation, hashtags, and music recommendation."""
     client = genai.Client()
 
@@ -193,4 +193,4 @@ def generate_single_image_post(
     if not image_saved:
         raise RuntimeError("Gemini failed to return an image in the response.")
 
-    return str(output_path), short_sentence, explanation, hashtags, music_recommendation
+    return str(output_path), short_sentence, explanation, hashtags, music_recommendation, image_prompt

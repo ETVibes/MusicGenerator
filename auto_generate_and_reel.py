@@ -100,6 +100,9 @@ def run_auto_publish(theme: str = None, mode: str = "single", num_slides: int = 
             print(f"  └─ Buffer Post ID: {post_id}")
             print(f"  └─ Status: {status}")
             print("=" * 60)
+            
+            # Send email notification after successful post creation
+            send_post_notification(caption, image_prompt_info)
         else:
             err_msg = res.get("errors", [{}])[0].get("message", str(res))
             print(f"❌ [STEP 3 FAILED] Buffer API Error: {err_msg}")

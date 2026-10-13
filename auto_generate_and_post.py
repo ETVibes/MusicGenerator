@@ -9,6 +9,9 @@ import os
 import sys
 import random
 from dotenv import load_dotenv
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+import smtplib
 
 # Load environment variables
 load_dotenv()
@@ -22,7 +25,56 @@ try:
 except ImportError as e:
     print(f"❌ Error importing project modules: {e}")
     sys.exit(1)
+    
+"""===============================================================================
+    Automates sending an email with text and image prompts after post to IG is completed.
 
+    Args:
+        post_text and image_prompt_details
+
+    Raises:
+        
+==============================================================================="""    
+def send_post_notification(post_text, image_prompt_details):
+  """Sends an email notification via Gmail using environment variables."""
+  import smtplib
+  from email.mime.multipart import MIMEMultipart
+  from email.mime.text import MIMEText
+
+  sender_email = os.getenv("SENDER_EMAIL")
+  app_password = os.getenv("EMAIL_APP_PASSWORD")
+  receiver_email = os.getenv("RECEIVER_EMAIL")
+
+  if not sender_email or not app_password:
+    print(
+        "⚠️ [EMAIL WARNING] Missing SENDER_EMAIL or EMAIL_APP_PASSWORD in environment variables. Skipping email."
+    )
+    return
+
+  msg = MIMEMultipart()
+  msg["From"] = sender_email
+  msg["To"] = receiver_email
+  msg["Subject"] = "New Post Created - ETVibesMusicShortsGenerator"
+
+  body = f"""Here are the details for the newly created post:
+
+Text Content & Headline: 
+{post_text}
+
+Image Prompt(s): 
+{image_prompt_details}
+"""
+  msg.attach(MIMEText(body, "plain"))
+
+  try:
+    with smtplib.SMTP("smtp.gmail.com", 587) as server:
+      server.starttls()
+      server.login(sender_email, app_password)
+      server.send_message(msg)
+    print(f"  └─ 📧 Notification email sent successfully to {receiver_email}!")
+  except Exception as e:
+    print(f"  └─ ❌ Failed to send email notification: {e}")
+    
 """===============================================================================
     Automates the full content lifecycle: theme selection, media and caption generation
     via Gemini, and post submission to Instagram via the Buffer API.
@@ -55,20 +107,28 @@ def run_auto_publish(theme: str = None, mode: str = "single", num_slides: int = 
     try:
         if mode == "carousel":
             # Generate multi-slide images and narrative text payload
-            image_paths, slide_quotes, explanation, hashtags, music_recommendation = (
+            image_paths, slide_quotes, explanation, hashtags, music_recommendation, image_prompts = (
                 generate_multi_slide_carousel(theme=theme, num_slides=num_slides)
             )
             headline = " | ".join(slide_quotes)
+            
+            # Format multiple carousel prompts neatly for the email
+            formatted_prompts = []
+            for idx, p in enumerate(image_prompts, 1):
+                formatted_prompts.append(f"--- Slide {idx} Prompt ---\n{p}")
+            image_prompt_info = "\n\n".join(formatted_prompts)
+            
             print("  └─ Carousel Generation Success!")
             print(f"  └─ Total Slides Saved: {len(image_paths)}")
             for idx, p in enumerate(image_paths, 1):
                 print(f"     Slide {idx}: {p}")
         else:
             # Generate single image/panel and post text payload
-            image_path, headline, explanation, hashtags, music_recommendation = (
+            image_path, headline, explanation, hashtags, music_recommendation, image_prompt = (
                 generate_single_image_post(theme)
             )
             image_paths = [image_path]
+            image_prompt_info = image_prompt
             print("  └─ Single Image Generation Success!")
             print(f"  └─ Quote Embedded: \"{headline}\"")
             print(f"  └─ Image File Saved: {image_path}")
@@ -100,6 +160,9 @@ def run_auto_publish(theme: str = None, mode: str = "single", num_slides: int = 
             print(f"  └─ Buffer Post ID: {post_id}")
             print(f"  └─ Status: {status}")
             print("=" * 60)
+            
+            # Send email notification with the exact text and image prompts
+            send_post_notification(caption, image_prompt_info)
         else:
             err_msg = res.get("errors", [{}])[0].get("message", str(res))
             print(f"❌ [STEP 3 FAILED] Buffer API Error: {err_msg}")

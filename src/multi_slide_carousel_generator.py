@@ -42,7 +42,7 @@ from .prompt_config import (
 ==============================================================================="""
 def generate_multi_slide_carousel(
     theme: str = None, num_slides: int = 4
-) -> tuple[list[str], list[str], str, str, str]:
+) -> tuple[list[str], list[str], str, str, str, list[str]]:
     """Generates an Instagram multi-slide carousel post with visual continuity across separate images."""
     client = genai.Client()
     active_theme = theme if theme else get_random_theme()
@@ -103,6 +103,7 @@ def generate_multi_slide_carousel(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     generated_image_paths = []
+    generated_image_prompts = []
     first_slide_image = None
 
     # 2. Sequential Slide Rendering
@@ -140,6 +141,8 @@ def generate_multi_slide_carousel(
                 f"STRICT NEGATIVE PROMPT: Do NOT add borders, polaroid frames, photo mats, dates, timestamps, logos, extra text, or typos."
             )
             contents = [first_slide_image, image_prompt]
+            
+        generated_image_prompts.append(image_prompt)    
 
         response = client.models.generate_content(
             model="gemini-2.5-flash-image",
@@ -185,4 +188,5 @@ def generate_multi_slide_carousel(
         explanation,
         hashtags,
         music_recommendation,
+        generated_image_prompts,
     )

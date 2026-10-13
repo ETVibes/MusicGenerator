@@ -67,7 +67,18 @@ def sanitize_caption_for_instagram(caption: str, max_hashtags: int = 5) -> str:
         caption = re.sub(r' +', ' ', caption).strip()
     return caption
 
+"""===============================================================================
+    Finds the most recently modified image (.jpg, .jpeg, .png) in the specified directory.
 
+    Args:
+        folder_path (Path): Path directory to search for images.
+
+    Returns:
+        str: Absolute file path string of the most recent image.
+
+    Raises:
+        FileNotFoundError: If no image files matching supported extensions exist in folder_path.
+==============================================================================="""
 def get_latest_image(folder_path: Path) -> str:
     """Finds the most recently modified image (.jpg, .jpeg, .png) in the specified directory."""
     folder_path = Path(folder_path)
