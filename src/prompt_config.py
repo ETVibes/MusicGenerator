@@ -1,33 +1,33 @@
 """===============================================================================
 Module: prompt_config.py
 Description: Configuration and helper functions for generating clean, high-impact image prompts,
-             including resolution constants, quality constraints, random themes,
+             including resolution constants, quality constraints, optimized top themes,
              visual styles, and subject consistency rules.
 ==============================================================================="""
 from pathlib import Path
 import random
 
-# Global resolution configuration
+# Global resolution configuration optimized for vertical Instagram layouts
 TARGET_WIDTH = 1080
 TARGET_HEIGHT = 1350
 
-# Streamlined, non-redundant quality and modesty constraints
+# Streamlined constraint ensuring clean anatomy and high legibility
 POSE_CONSTRAINT = (
-    "Style: Full tasteful apparel, natural posture, clean anatomy, high contrast legibility."
+    "Style: Full tasteful apparel, natural posture, clean anatomy, high contrast edge definition."
 )
 
 def get_emotional_visual_modifier() -> str:
-    """Returns a concise atmospheric modifier to enhance depth without clutter."""
+    """Returns a concise cinematic modifier for high atmospheric depth."""
     modifiers = [
-        "quiet moment of reflection, soft golden hour lighting, cozy modern attire",
-        "serene atmosphere, warm cinematic tones, elegant casual wear",
-        "candid soulful expression, rich atmospheric depth, stylish layered clothing",
-        "peaceful comforting environment, gentle natural light, tasteful apparel",
+        "cinematic rim lighting, deep dramatic shadows, rich focal pop",
+        "warm golden hour rays, high contrast atmosphere, elegant modern styling",
+        "dramatic volumetric lighting, clean studio depth, soulful expression",
+        "soft ambient glow, high-contrast clarity, comforting environment",
     ]
     return random.choice(modifiers)
 
 def get_random_theme() -> str:
-    """Selects a random high-engagement theme optimized for Instagram views and shares."""
+    """Selects from top-tier high-engagement themes proven to maximize views and shares."""
     themes = [
         "personal growth and overcoming obstacles",
         "inner peace and mindfulness",
@@ -39,66 +39,37 @@ def get_random_theme() -> str:
     return selected
 
 def get_random_style() -> str:
-    """Returns a concise, punchy visual style prompt."""
+    """Returns a high-contrast, thumb-stopping visual style prompt."""
     categories = [
         "realistic_photography",
         "realistic_animation",
         "digital_art_anime",
-    # 10/14/26 - Removing a few categories    
-    #    "vintage_retro",
-    #    "minimalist_fine_art",
-    #    "illustration_painting",
     ]
     chosen_category = random.choice(categories)
 
     if chosen_category == "realistic_animation":
         styles = [
-            "Hyper-realistic 3D Pixar-style render, soft cinematic lighting, warm autumn layers",
-            "Realistic 3D digital render, soft ambient occlusion, elegant wardrobe, subtle depth of field",
-            "Cinematic CGI animation, realistic cloth physics, natural skin texture, soft volumetric lighting",
-            "Photorealistic stylized 3D render, warm studio illumination, tasteful attire, clean edge definition",
+            "Hyper-realistic 3D Pixar-style render, high-contrast cinematic rim lighting, rich depth of field",
+            "Realistic 3D digital render, sharp ambient occlusion, elegant wardrobe, bold visual contrast",
+            "Cinematic CGI animation, realistic cloth physics, vibrant lighting, striking focal depth",
+            "Photorealistic stylized 3D render, dramatic warm illumination, tasteful attire, crisp edges",
         ]
         return random.choice(styles)
 
     elif chosen_category == "realistic_photography":
         styles = [
-            "Cinematic 35mm photography, soft natural lighting, golden hour tones, cozy apparel",
-            "Candid high-resolution portrait photo, soft bokeh, shallow depth of field, modern knitwear",
-            "Editorial lifestyle photography, rich atmospheric depth, stylish outerwear",
-            "Documentary-style street photography, analog film grain, casual clothing",
+            "High-contrast cinematic 35mm photography, dramatic golden hour tones, rich moody shadows",
+            "Striking editorial lifestyle photography, deep atmospheric contrast, stylish outerwear",
+            "Documentary-style portraiture, sharp focal clarity, cinematic lighting balance",
+            "Moody high-end lifestyle capture, rich depth of field, vibrant color grading",
         ]
         return random.choice(styles)
 
-    elif chosen_category == "digital_art_anime":
+    else:  # digital_art_anime
         styles = [
-            "Vibrant modern anime style, clean line art, tasteful modest outfits, dramatic backlighting",
-            "Sleek 3D digital art render, ambient glow, cozy apparel, cinematic atmosphere",
-            "Cozy Studio Ghibli-inspired digital scene, lush natural elements, soft pastel lighting",
-            "Stylized fantasy digital concept art, dynamic lighting, rich color palette",
-        ]
-        return random.choice(styles)
-
-    elif chosen_category == "vintage_retro":
-        styles = [
-            "Retro 1970s film photo, warm faded stock, gentle light leaks, classic sweaters",
-            "Nostalgic 90s polaroid photo aesthetic, soft muted colors, film grain, comfortable casualwear",
-            "Vintage poster art, bold retro typography elements, modest clothing, screen-print texture",
-        ]
-        return random.choice(styles)
-
-    elif chosen_category == "minimalist_fine_art":
-        styles = [
-            "Minimalist fine-art photo, clean negative space, simple modest dress, soft shadows",
-            "Scandi-inspired clean aesthetic, neutral earthy tones, comfortable lounge apparel",
-            "Monochromatic black-and-white fine art photography, high tonal range, deep contrast",
-        ]
-        return random.choice(styles)
-
-    else:
-        styles = [
-            "Cozy watercolor painting, wet-on-wet textures, soft bleeding edges, pastel tones",
-            "Textured oil painting, visible palette knife strokes, elegant fully-covered clothing",
-            "Whimsical storybook vector illustration, hand-drawn lines, cozy layered clothing",
+            "Vibrant modern anime style, clean high-contrast line art, dramatic backlighting, rich color pop",
+            "Sleek 3D digital art render, luminous ambient glow, cinematic atmosphere, bold shadows",
+            "Stylized fantasy digital concept art, dynamic high-contrast lighting, rich color palette",
         ]
         return random.choice(styles)
 
@@ -110,9 +81,9 @@ def get_subject_and_instructions(active_theme: str) -> tuple[str, str]:
     
     if is_relationship_theme:
         character_desc = "A couple dressed in stylish modern casual wear"
-        subject_instruction = "Consistent couple across panels, clean natural postures."
+        subject_instruction = "Consistent couple across panels, clean natural postures, sharp framing."
     else:
         character_desc = "A central figure dressed in comfortable, tasteful apparel"
-        subject_instruction = "Consistent main subject, natural posture, clear framing."
+        subject_instruction = "Consistent main subject, natural posture, striking central framing."
         
     return character_desc, subject_instruction

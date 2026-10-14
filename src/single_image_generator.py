@@ -1,7 +1,7 @@
 """===============================================================================
 Module: single_image_generator.py
 Description: Generates standalone Instagram image posts (single frame or multi-panel
-             stacked layouts) with clean, optimized image prompts.
+             stacked layouts) with optimized curiosity pacing and clean visual framing.
 ==============================================================================="""
 from datetime import datetime
 import io
@@ -39,15 +39,15 @@ def generate_single_image_post(
     if num_panels == 1:
         text_prompt = (
             f"Write an Instagram post caption package for the theme '{active_theme}'.\n"
-            f"1. A single short, impactful, and inspiring sentence (4-6 words max).\n"
+            f"1. A single short, high-impact curiosity hook sentence (4-6 words max).\n"
             f"2. A 2-3 sentence inspiring explanation reflecting deeply on the sentence.\n"
             f"3. 6 to 9 relevant, high-engagement Instagram hashtags tailored specifically to '{active_theme}' (always include #thisisdailywhisper).\n"
-            f"4. A suggested song title and artist available on Instagram Audio that matches the mood of the sentence.\n\n"
+            f"4. A suggested song title and viral audio genre keyword available on Instagram Audio.\n\n"
             f"Format strictly as:\n"
             f"QUOTE: <your quote without quotation marks>\n"
             f"EXPLANATION: <your explanation>\n"
             f"HASHTAGS: <your hashtags separated by spaces>\n"
-            f"MUSIC: <song name - artist name or genre keyword search>"
+            f"MUSIC: <song name - artist name | genre mood>"
         )
         sentence_response = client.models.generate_content(
             model="gemini-3.6-flash",
@@ -73,27 +73,26 @@ def generate_single_image_post(
         if not short_sentence:
             short_sentence = raw_text.splitlines()[0].replace('"', "")
 
-        # Optimized, concise image prompt combining style, subject, mood, and text overlay
         image_prompt = (
             f"{chosen_style}. Theme: {active_theme}. "
             f"Subject: {character_desc}, {get_emotional_visual_modifier()}. "
-            f"Visual focus: Capturing resilience, growth, and inner peace. "
+            f"Composition: High contrast vertical 1080x1350 canvas with generous top and bottom safety margins for UI overlays. "
             f"{POSE_CONSTRAINT} "
-            f"Text overlay: '{short_sentence}' in elegant high-contrast typography."
+            f"Overlay typography: Stark white, high-contrast bold sans-serif text reading '{short_sentence}' centered cleanly."
         )
 
     else:
         text_prompt = (
-            f"Write an Instagram multi-panel story post caption package for the theme '{active_theme}'.\n"
-            f"1. A short, inspiring {num_panels}-part story quote (total 6-10 words max) separated strictly by '|'.\n"
+            f"Write an Instagram multi-panel curiosity-loop story post for the theme '{active_theme}'.\n"
+            f"1. A short {num_panels}-part narrative sequence where each part builds an open psychological loop or cliffhanger, separated strictly by '|'.\n"
             f"2. A 2-3 sentence inspiring explanation reflecting deeply on the story.\n"
             f"3. 6 to 9 relevant, high-engagement Instagram hashtags tailored specifically to '{active_theme}' (always include #thisisdailywhisper).\n"
-            f"4. A suggested song title and artist available on Instagram Audio that matches the mood of the sentence.\n\n"
+            f"4. A suggested song title and viral audio genre keyword available on Instagram Audio.\n\n"
             f"Format strictly as:\n"
             f"QUOTE: <segment 1 | segment 2 | segment 3>\n"
             f"EXPLANATION: <your explanation>\n"
             f"HASHTAGS: <your hashtags separated by spaces>\n"
-            f"MUSIC: <song name - artist name or genre keyword search>"
+            f"MUSIC: <song name - artist name | genre mood>"
         )
         sentence_response = client.models.generate_content(
             model="gemini-3.6-flash",
@@ -123,15 +122,14 @@ def generate_single_image_post(
 
         short_sentence = " ".join(parts)
 
-        panel_descriptions = " - ".join([f"Panel {idx}: {part}" for idx, part in enumerate(parts, 1)])
+        panel_descriptions = " - ".join([f"Panel {idx}: '{part}'" for idx, part in enumerate(parts, 1)])
 
-        # Optimized multi-panel image prompt
         image_prompt = (
-            f"{chosen_style}. {num_panels}-row vertically stacked layout. Theme: {active_theme}. "
+            f"{chosen_style}. {num_panels}-row vertically stacked layout on a high-contrast 1080x1350 canvas. Theme: {active_theme}. "
             f"Subject: {character_desc}, {get_emotional_visual_modifier()}. "
-            f"Story panels: {panel_descriptions}. "
+            f"Narrative panels with open loops: {panel_descriptions}. "
             f"{POSE_CONSTRAINT} "
-            f"{subject_instruction} Clean horizontal panel borders and high text legibility."
+            f"{subject_instruction} Clean horizontal panel borders, distinct framing per row, and high-contrast bold typography for max mobile readability."
         )
 
     response = client.models.generate_content(
