@@ -1,9 +1,7 @@
 """===============================================================================
 Module: single_image_generator.py
 Description: Generates standalone Instagram image posts (single frame or multi-panel
-             stacked layouts). Uses Gemini text models to craft post captions,
-             explanations, hashtags, and music recommendations, and renders styled
-             4:5 aspect ratio graphics via Gemini image generation models.
+             stacked layouts) with clean, optimized image prompts.
 ==============================================================================="""
 from datetime import datetime
 import io
@@ -23,25 +21,6 @@ from .prompt_config import (
     get_subject_and_instructions,
 )
 
-"""===============================================================================
-    Generates a complete Instagram single-image or multi-panel post package.
-
-    Args:
-        theme (str, optional): Thematic category for the post. Defaults to a random theme if None.
-        force_panels (int, optional): Forces a specific panel count (1, 2, or 3). 
-                                     Defaults to a random choice between 1, 2, or 3.
-
-    Returns:
-        tuple[str, str, str, str, str]: A tuple containing:
-            - output_path (str): Filepath of the generated PNG image.
-            - short_sentence (str): Generated quote or stacked story string.
-            - explanation (str): Conceptual caption explanation.
-            - hashtags (str): Tailored Instagram hashtags block.
-            - music_recommendation (str): Recommended audio track for the post.
-
-    Raises:
-        RuntimeError: If Gemini fails to return binary image data in its response.
-==============================================================================="""
 def generate_single_image_post(
     theme: str = None, force_panels: int = None
 ) -> tuple[str, str, str, str, str, str]:
@@ -94,11 +73,13 @@ def generate_single_image_post(
         if not short_sentence:
             short_sentence = raw_text.splitlines()[0].replace('"', "")
 
+        # Optimized, concise image prompt combining style, subject, mood, and text overlay
         image_prompt = (
-            f"{chosen_style} inspired by the theme '{active_theme}'. "
-            f"Featuring {character_desc} {get_emotional_visual_modifier()} in a scene that visually captures the emotional meaning of: '{explanation}'. "
+            f"{chosen_style}. Theme: {active_theme}. "
+            f"Subject: {character_desc}, {get_emotional_visual_modifier()}. "
+            f"Visual focus: Capturing resilience, growth, and inner peace. "
             f"{POSE_CONSTRAINT} "
-            f"The text '{short_sentence}' is overlayed clearly in elegant typography with high contrast."
+            f"Text overlay: '{short_sentence}' in elegant high-contrast typography."
         )
 
     else:
@@ -142,22 +123,15 @@ def generate_single_image_post(
 
         short_sentence = " ".join(parts)
 
-        panel_descriptions = [
-            f"Panel {idx}: Represents '{part}', with the text '{part}' clearly overlayed at the top."
-            for idx, part in enumerate(parts, 1)
-        ]
+        panel_descriptions = " - ".join([f"Panel {idx}: {part}" for idx, part in enumerate(parts, 1)])
 
-        layout_type = f"{num_panels}-row vertically stacked layout"
-        story_instructions = " ".join(panel_descriptions)
-
+        # Optimized multi-panel image prompt
         image_prompt = (
-            f"{chosen_style} structured as a single image with a {layout_type} themed around '{active_theme}'. "
-            f"MAIN SUBJECT: {character_desc}, {get_emotional_visual_modifier()}. "
-            f"STRICT REQUIREMENT: {subject_instruction} "
-            f"VISUAL NARRATIVE: Illustrate a scene reflecting the story and context of: '{explanation}'. "
+            f"{chosen_style}. {num_panels}-row vertically stacked layout. Theme: {active_theme}. "
+            f"Subject: {character_desc}, {get_emotional_visual_modifier()}. "
+            f"Story panels: {panel_descriptions}. "
             f"{POSE_CONSTRAINT} "
-            f"{story_instructions} "
-            f"Ensure clean horizontal panel borders and high contrast legibility for text."
+            f"{subject_instruction} Clean horizontal panel borders and high text legibility."
         )
 
     response = client.models.generate_content(
