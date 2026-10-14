@@ -1,9 +1,7 @@
 """===============================================================================
 Module: multi_slide_carousel_generator.py
-Description: Generates multi-slide Instagram carousel posts. Uses Gemini text 
-             models to construct cohesive script progressions and multi-modal 
-             Gemini image generation models to render sequential visual slides 
-             maintaining character and visual style continuity.
+Description: Generates multi-slide Instagram carousel posts matching high-contrast
+             visual quality, curiosity-loop pacing, and character consistency.
 ==============================================================================="""
 from datetime import datetime
 import io
@@ -22,24 +20,6 @@ from .prompt_config import (
     get_subject_and_instructions,
 )
 
-"""===============================================================================
-    Generates a multi-slide Instagram carousel post with script flow and visual continuity.
-
-    Args:
-        theme (str, optional): The thematic concept for the post. Defaults to a random theme if None.
-        num_slides (int, optional): The number of carousel slides to generate. Defaults to 4.
-
-    Returns:
-        tuple[list[str], list[str], str, str, str]: A tuple containing:
-            - generated_image_paths (list[str]): Saved filepaths of generated JPEG images.
-            - slide_quotes (list[str]): Extracted quote text lines for each slide.
-            - explanation (str): Caption narrative explanation.
-            - hashtags (str): Generated Instagram hashtag block.
-            - music_recommendation (str): Recommended background music audio track.
-
-    Raises:
-        RuntimeError: If image generation or processing fails for any individual slide.
-==============================================================================="""
 def generate_multi_slide_carousel(
     theme: str = None, num_slides: int = 4
 ) -> tuple[list[str], list[str], str, str, str, list[str]]:
@@ -50,25 +30,19 @@ def generate_multi_slide_carousel(
     character_desc, subject_instruction = get_subject_and_instructions(active_theme)
     emotional_modifier = get_emotional_visual_modifier()
 
-    # 1. Script Generation for Carousel
+    # 1. High-Engagement Curiosity-Loop Script Generation for Carousel
     text_prompt = (
-        f"Write an Instagram carousel post caption package for the theme '{active_theme}'.\n"
-        f"1. Generate {num_slides} flowing, modern, and deeply reflective sentences (6 to 12 words per slide) separated by '|'. "
-        f"The text should sound like a personal journal entry or modern voice memo rather than short poetry. "
-        f"Follow an emotional narrative progression:\n"
-        f"   - Slide 1: A vulnerable, modern realization about protection, overthinking, or fear.\n"
-        f"   - Slide 2: The turning point where soft tenderness or quiet understanding enters.\n"
-        f"   - Slide 3: The active decision to unlearn old habits and embrace connection.\n"
-        f"   - Slide 4: A grounding, reassuring closing thought about what truly matters.\n"
-        f"Use natural, conversational modern language. Avoid archaic or overly poetic tropes.\n"
-        f"2. A 2-3 sentence inspiring overall caption explanation reflecting deeply on this journey.\n"
+        f"Write an Instagram multi-slide curiosity-loop carousel post caption package for the theme '{active_theme}'.\n"
+        f"1. Generate {num_slides} high-impact narrative sentences (4-7 words per slide) separated strictly by '|'. "
+        f"Each slide must build an open psychological loop or cliffhanger forcing the user to swipe to the next slide.\n"
+        f"2. A 2-3 sentence inspiring overall caption explanation reflecting deeply on the narrative.\n"
         f"3. 6 to 9 relevant, high-engagement Instagram hashtags tailored specifically to '{active_theme}' (always include #thisisdailywhisper).\n"
-        f"4. A suggested song title and artist available on Instagram Audio that matches the mood.\n\n"
+        f"4. A suggested song title and viral audio genre keyword available on Instagram Audio.\n\n"
         f"Format strictly as:\n"
         f"QUOTE: <slide 1 quote | slide 2 quote | slide 3 quote ...>\n"
         f"EXPLANATION: <your explanation>\n"
         f"HASHTAGS: <your hashtags separated by spaces>\n"
-        f"MUSIC: <song name - artist name or genre keyword search>"
+        f"MUSIC: <song name - artist name | genre mood>"
     )
     
     sentence_response = client.models.generate_content(
@@ -106,39 +80,28 @@ def generate_multi_slide_carousel(
     generated_image_prompts = []
     first_slide_image = None
 
-    # 2. Sequential Slide Rendering
+    # 2. Sequential Slide Rendering with High-Contrast Prompt Styling
     for idx, slide_text in enumerate(slide_quotes, 1):
         if idx == 1:
             image_prompt = (
-                f"{chosen_style} themed around '{active_theme}'. "
-                f"Slide {idx} of {num_slides} in a cohesive Instagram carousel sequence. "
-                f"MAIN SUBJECT & CHARACTER ANCHOR: {character_desc}, {emotional_modifier}. "
-                f"VISUAL CONTINUITY: {subject_instruction} Establish clear facial features, hair style/color, age, and clothing. "
+                f"{chosen_style}. Theme: {active_theme}. "
+                f"Slide {idx} of {num_slides} in a high-engagement Instagram carousel sequence. "
+                f"Subject: {character_desc}, {emotional_modifier}. "
+                f"Consistency: {subject_instruction} "
+                f"Composition: High contrast vertical 1080x1350 canvas with generous top and bottom safety margins for UI overlays. "
                 f"{POSE_CONSTRAINT} "
-                f"SCENE 1 (ISOLATION / TENSION): Visually depict the emotional distance and vulnerability for: '{slide_text}'. "
-                f"TYPOGRAPHY & TEXT OVERLAY: Overlay the exact text string: \"{slide_text}\" in clean, bold, white sans-serif typography. "
-                f"CRITICAL: Double-check every letter for exact spelling. Do NOT replace letters, omit characters, or invent non-words. "
-                f"POSITION: Centered strictly in the lower third of the image frame. "
-                f"FONT STYLE: Clean, modern, bold white sans-serif typography. "
-                f"COMPOSITION: Full-bleed edge-to-edge 4:5 vertical framing. "
-                f"STRICT NEGATIVE PROMPT: Do NOT add borders, polaroid frames, photo mats, dates, timestamps, logos, or extra text."
+                f"Overlay typography: Stark white, high-contrast bold sans-serif text reading '{slide_text}' centered cleanly."
             )
             contents = [image_prompt]
         else:
             image_prompt = (
-                f"{chosen_style} themed around '{active_theme}'. "
-                f"Slide {idx} of {num_slides} in a cohesive Instagram carousel sequence. "
-                f"CHARACTER REFERENCE: Maintain the EXACT SAME man and woman from the reference image (identical faces, hair, and clothing), but CHANGE THEIR POSE, DISTANCE, AND ACTION to match the story progression. "
-                f"VISUAL CONTINUITY: {subject_instruction} Maintain matching lighting, color palette, and art style. "
+                f"{chosen_style}. Theme: {active_theme}. "
+                f"Slide {idx} of {num_slides} in a high-engagement Instagram carousel sequence. "
+                f"Subject: Maintain the exact same main subject from the reference image with consistent facial features, hair, and apparel across slides. "
+                f"Consistency: {subject_instruction} "
+                f"Composition: High contrast vertical 1080x1350 canvas with generous top and bottom safety margins for UI overlays. "
                 f"{POSE_CONSTRAINT} "
-                f"DYNAMIC SCENE PROGRESSION FOR SLIDE {idx}: Visually depict a NEW pose, interaction, or environment movement capturing the message: '{slide_text}'. "
-                f"TYPOGRAPHY & TEXT OVERLAY: Overlay the exact text string: \"{slide_text}\" in clean, bold, white sans-serif typography. "
-                f"CRITICAL: Double-check every letter for exact spelling. Do NOT replace letters, omit characters, or invent non-words. "
-                f"POSITION: Centered strictly in the lower third of the image frame. "
-                f"FONT STYLE: Clean, modern, bold white sans-serif typography. "
-                f"UNIFORMITY: Ensure identical font family, size, placement, and alignment across every slide. "
-                f"COMPOSITION: Full-bleed edge-to-edge 4:5 vertical framing. "
-                f"STRICT NEGATIVE PROMPT: Do NOT add borders, polaroid frames, photo mats, dates, timestamps, logos, extra text, or typos."
+                f"Overlay typography: Stark white, high-contrast bold sans-serif text reading '{slide_text}' centered cleanly."
             )
             contents = [first_slide_image, image_prompt]
             
@@ -166,12 +129,10 @@ def generate_multi_slide_carousel(
                     if idx == 1:
                         first_slide_image = raw_image.copy()
 
-                    # 1. Force exact 1080x1350 resolution
                     raw_image = raw_image.resize(
                         (TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS
                     )
                     
-                    # 2. Save strictly as RGB JPEG
                     rgb_image = raw_image.convert("RGB")
                     rgb_image.save(slide_path_jpg, "JPEG", quality=95, optimize=True)
                     
