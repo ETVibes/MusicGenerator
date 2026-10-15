@@ -101,7 +101,8 @@ def generate_multi_slide_carousel(
             )
             contents = [image_prompt]
         else:
-            f"You are an expert Instagram visual art director and high-engagement carousel designer. "
+            image_prompt = (
+                f"You are an expert Instagram visual art director and high-engagement carousel designer. "
                 f"Analyze the theme: '{active_theme}' and slide text: '{slide_text}' (Slide {idx} of {num_slides}). "
                 f"Maintain visual continuity with the reference slide image, keeping the exact same main subject (consistent facial features, hair, and apparel), "
                 f"while shifting the pose, framing, and environment subtly to reflect the narrative progression of this slide. "
