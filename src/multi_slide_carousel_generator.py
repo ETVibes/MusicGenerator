@@ -99,7 +99,6 @@ def generate_multi_slide_carousel(
                 f"Overlay typography: Stark white, high-contrast bold sans-serif text reading '{slide_text}' centered cleanly. "
                 f"CRITICAL SPELLING RULE: Double-check letter accuracy to prevent rendering typos."
             )
-            )
             contents = [image_prompt]
         else:
             image_prompt = (
