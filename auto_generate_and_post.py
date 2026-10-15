@@ -89,8 +89,8 @@ Image Prompt(s):
 ==============================================================================="""
 def run_auto_publish(theme: str = None, mode: str = "single", num_slides: int = 4):
 
-    # 0. Mode Selection (Randomize if not explicitly passed)
-    if not mode:
+    # 0. Mode Selection (Randomize if not explicitly passed or if 'random' is requested)
+    if not mode or mode.lower() == "random":
         mode = random.choice(["single", "carousel"])
         
     print("=" * 60)
@@ -179,9 +179,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--mode",
         type=str,
-        choices=["single", "carousel"],
+        choices=["single", "carousel", "random"],
         default="single",
-        help="Post format mode: single or carousel",
+        help="Post format mode: single, carousel, or random",
     )
     parser.add_argument(
         "--slides",
