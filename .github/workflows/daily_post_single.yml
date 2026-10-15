@@ -1,4 +1,4 @@
-name: Daily Instagram Post
+name: Instagram Single Image Post
 
 on:
   schedule:
