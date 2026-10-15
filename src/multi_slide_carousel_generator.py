@@ -30,14 +30,19 @@ def generate_multi_slide_carousel(
     character_desc, subject_instruction = get_subject_and_instructions(active_theme)
     emotional_modifier = get_emotional_visual_modifier()
 
-    # 1. High-Engagement Curiosity-Loop Script Generation for Carousel
+    # 1. Fully dynamic, theme-agnostic text prompt generation
     text_prompt = (
-        f"Write an Instagram multi-slide curiosity-loop carousel post caption package for the theme '{active_theme}'.\n"
-        f"1. Generate {num_slides} high-impact narrative sentences (4-7 words per slide) separated strictly by '|'. "
-        f"Each slide must build an open psychological loop or cliffhanger forcing the user to swipe to the next slide.\n"
-        f"2. A 2-3 sentence inspiring overall caption explanation reflecting deeply on the narrative.\n"
-        f"3. 6 to 9 relevant, high-engagement Instagram hashtags tailored specifically to '{active_theme}' (always include #thisisdailywhisper).\n"
-        f"4. A suggested song title and viral audio genre keyword available on Instagram Audio.\n\n"
+        f"You are an expert Instagram content strategist and viral copywriter. "
+        f"Analyze the theme: '{active_theme}'.\n"
+        f"Study the structural patterns of high-engagement, high-share Instagram carousel posts specifically tailored to this theme, "
+        f"and generate a cohesive {num_slides}-slide narrative package.\n\n"
+        f"1. Generate {num_slides} short, powerful hook sentences (3-6 words max per slide) separated strictly by '|'. "
+        f"The tone, cadence, and psychological hook must naturally match the core intent of '{active_theme}' "
+        f"(e.g., humorous, romantic, reflective, or motivational depending on the theme).\n"
+        f"2. CRITICAL SPELLING RULE: Use extremely simple, clean, and common English words. Avoid complex double-consonant spelling words prone to image generation typos (such as 'trapped' or 'shattered'); instead, use clean, foolproof wording.\n"
+        f"3. A 2-3 sentence inspiring overall caption explanation reflecting deeply on the carousel narrative.\n"
+        f"4. 6 to 9 relevant, high-engagement Instagram hashtags tailored specifically to '{active_theme}' (always include #thisisdailywhisper).\n"
+        f"5. A suggested song title and viral audio genre keyword available on Instagram Audio that matches the emotional vibe.\n\n"
         f"Format strictly as:\n"
         f"QUOTE: <slide 1 quote | slide 2 quote | slide 3 quote ...>\n"
         f"EXPLANATION: <your explanation>\n"
@@ -84,24 +89,26 @@ def generate_multi_slide_carousel(
     for idx, slide_text in enumerate(slide_quotes, 1):
         if idx == 1:
             image_prompt = (
-                f"{chosen_style}. Theme: {active_theme}. "
-                f"Slide {idx} of {num_slides} in a high-engagement Instagram carousel sequence. "
+                f"You are an expert Instagram visual art director and high-engagement carousel designer. "
+                f"Analyze the theme: '{active_theme}' and slide text: '{slide_text}' (Slide {idx} of {num_slides}).\n"
+                f"Design a thumb-stopping, high-contrast vertical 1080x1350 visual composition that emotionally and aesthetically matches this specific theme. "
                 f"Subject: {character_desc}, {emotional_modifier}. "
                 f"Consistency: {subject_instruction} "
-                f"Composition: High contrast vertical 1080x1350 canvas with generous top and bottom safety margins for UI overlays. "
+                f"Composition rules: Generous top and bottom safety margins for Instagram UI overlays. "
                 f"{POSE_CONSTRAINT} "
-                f"Overlay typography: Stark white, high-contrast bold sans-serif text reading '{slide_text}' centered cleanly."
+                f"Overlay typography: Stark white, high-contrast bold sans-serif text reading '{slide_text}' centered cleanly. "
+                f"CRITICAL SPELLING RULE: Double-check letter accuracy to prevent rendering typos."
             )
             contents = [image_prompt]
         else:
-            image_prompt = (
-                f"{chosen_style}. Theme: {active_theme}. "
-                f"Slide {idx} of {num_slides} in a high-engagement Instagram carousel sequence. "
-                f"Subject: Maintain the exact same main subject from the reference image with consistent facial features, hair, and apparel across slides. "
-                f"Consistency: {subject_instruction} "
-                f"Composition: High contrast vertical 1080x1350 canvas with generous top and bottom safety margins for UI overlays. "
+            f"You are an expert Instagram visual art director and high-engagement carousel designer. "
+                f"Analyze the theme: '{active_theme}' and slide text: '{slide_text}' (Slide {idx} of {num_slides}). "
+                f"Maintain visual continuity with the reference slide image, keeping the exact same main subject (consistent facial features, hair, and apparel), "
+                f"while shifting the pose, framing, and environment subtly to reflect the narrative progression of this slide. "
+                f"Composition rules: High-contrast vertical 1080x1350 canvas with safe margins. "
                 f"{POSE_CONSTRAINT} "
-                f"Overlay typography: Stark white, high-contrast bold sans-serif text reading '{slide_text}' centered cleanly."
+                f"Overlay typography: Stark white, high-contrast bold sans-serif text reading '{slide_text}' centered cleanly. "
+                f"CRITICAL SPELLING RULE: Double-check letter accuracy to prevent rendering typos."
             )
             contents = [first_slide_image, image_prompt]
             

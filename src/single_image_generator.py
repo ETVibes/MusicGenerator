@@ -86,7 +86,7 @@ def generate_single_image_post(
             f"Write an Instagram multi-panel curiosity-loop story post for the theme '{active_theme}'.\n"
             f"1. A short {num_panels}-part narrative sequence where each part builds an open psychological loop or cliffhanger, separated strictly by '|'.\n"
             f"2. A 2-3 sentence inspiring explanation reflecting deeply on the story.\n"
-            f"3. 6 to 9 relevant, high-engagement Instagram hashtags tailored specifically to '{active_theme}' (always include #thisisdailywhisper).\n"
+            f"3. 5 relevant, high-engagement Instagram hashtags tailored specifically to '{active_theme}' (always include #thisisdailywhisper).\n"
             f"4. A suggested song title and viral audio genre keyword available on Instagram Audio.\n\n"
             f"Format strictly as:\n"
             f"QUOTE: <segment 1 | segment 2 | segment 3>\n"
