@@ -11,6 +11,8 @@ import random
 from dotenv import load_dotenv
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from pathlib import Path
+from moviepy.editor import ImageClip, concatenate_videoclips
 import smtplib
 
 # Load environment variables
@@ -18,7 +20,7 @@ load_dotenv()
 
 # Import generation and publishing functions
 try:
-    from src.Publish_IG_Post import publish_latest_single_image, publish_carousel_post
+    from src.Publish_IG_Post import publish_latest_single_image, publish_carousel_post, publish_latest_reel
     from src.prompt_config import get_random_theme
     from src.single_image_generator import generate_single_image_post
     from src.multi_slide_carousel_generator import generate_multi_slide_carousel
@@ -74,6 +76,38 @@ Image Prompt(s):
     print(f"  └─ 📧 Notification email sent successfully to {receiver_email}!")
   except Exception as e:
     print(f"  └─ ❌ Failed to send email notification: {e}")
+
+"""===============================================================================
+    Compiles a list of image file paths into a single MP4 video reel.
+
+    Args:
+        image_paths (list[str]): List of image paths to compile into video frames.
+        duration_per_slide (float, optional): Display duration for each image in seconds. Defaults to 3.0.
+
+    Returns:
+        str: Absolute file path string of the generated reel MP4.
+==============================================================================="""
+def compile_images_to_reel(image_paths: list[str], duration_per_slide: float = 3.0) -> str:
+    """Compiles a list of image file paths into a single MP4 video reel."""
+    from pathlib import Path
+    from moviepy.editor import ImageClip, concatenate_videoclips
+
+    reel_output_dir = Path("output") / "Reels"
+    reel_output_dir.mkdir(parents=True, exist_ok=True)
+    
+    clips = [ImageClip(img).set_duration(duration_per_slide) for img in image_paths]
+    final_video = concatenate_videoclips(clips, method="compose")
+    
+    output_video_path = reel_output_dir / "generated_reel.mp4"
+    final_video.write_videofile(
+        str(output_video_path), 
+        fps=24, 
+        codec="libx264", 
+        audio=False, 
+        preset="medium",
+        logger=None
+    )
+    return str(output_video_path)
     
 """===============================================================================
     Automates the full content lifecycle: theme selection, media and caption generation
@@ -82,19 +116,20 @@ Image Prompt(s):
     Args:
         theme (str, optional): Overrides theme choice. Defaults to a random theme if None.
         mode (str, optional): Post mode ("single" or "carousel"). If None, randomly picks one.
+        post_type (str, optional): Target type ("post" or "reel"). Defaults to "post".
         num_slides (int, optional): Number of carousel slides if mode is "carousel". Defaults to 4.
 
     Raises:
         SystemExit: Exits script with code 1 if content generation or Buffer publishing fails.
 ==============================================================================="""
-def run_auto_publish(theme: str = None, mode: str = "single", num_slides: int = 4):
+def run_auto_publish(theme: str = None, mode: str = "single", post_type: str = "post", num_slides: int = 4):
 
     # 0. Mode Selection (Randomize if not explicitly passed or if 'random' is requested)
     if not mode or mode.lower() == "random":
         mode = random.choice(["single", "carousel"])
         
     print("=" * 60)
-    print(f"🚀 STARTING AUTOMATED INSTAGRAM PUBLISH JOB [{mode.upper()} MODE]")
+    print(f"🚀 STARTING AUTOMATED INSTAGRAM PUBLISH JOB [{mode.upper()} MODE | TYPE: {post_type.upper()}]")
     print("=" * 60)
 
     # 1. Select Theme
@@ -145,7 +180,11 @@ def run_auto_publish(theme: str = None, mode: str = "single", num_slides: int = 
     caption = f"{headline}\n\n{explanation}\n\n🎵 Suggested Audio: {music_recommendation}\n\n✨ {hashtags}"
 
     try:
-        if mode == "carousel" and "publish_carousel_post" in globals():
+        if post_type.lower() == "reel":
+            print("  └─ Compiling generated images into video Reel format...")
+            compile_images_to_reel(image_paths)
+            res = publish_latest_reel(caption)
+        elif mode == "carousel" and "publish_carousel_post" in globals():
             res = publish_carousel_post(image_paths, caption)
         else:
             res = publish_latest_single_image(caption)
@@ -184,6 +223,13 @@ if __name__ == "__main__":
         help="Post format mode: single, carousel, or random",
     )
     parser.add_argument(
+        "--type",
+        type=str,
+        choices=["post", "reel"],
+        default="post",
+        help="Instagram target type: post or reel",
+    )
+    parser.add_argument(
         "--slides",
         type=int,
         default=4,
@@ -191,4 +237,4 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    run_auto_publish(theme=args.theme, mode=args.mode, num_slides=args.slides)
+    run_auto_publish(theme=args.theme, mode=args.mode, post_type=args.type, num_slides=args.slides)
