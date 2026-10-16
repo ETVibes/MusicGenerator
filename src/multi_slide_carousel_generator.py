@@ -1,60 +1,251 @@
 """===============================================================================
 Module: multi_slide_carousel_generator.py
-Description: Generates multi-slide Instagram carousel posts matching high-contrast
-             visual quality, curiosity-loop pacing, and character consistency.
+Description: Generates Instagram carousel text and a coordinated set of images.
 ==============================================================================="""
+
 from datetime import datetime
 import io
+import json
+import re
 from pathlib import Path
+
 from google import genai
 from google.genai import types
 from PIL import Image
 
 from .prompt_config import (
-    POSE_CONSTRAINT,
+    ASPECT_RATIO,
     TARGET_HEIGHT,
     TARGET_WIDTH,
+    TYPOGRAPHY_CONSTRAINT,
+    build_carousel_style_block,
     get_emotional_visual_modifier,
     get_random_style,
     get_random_theme,
+    get_slide_role,
     get_subject_and_instructions,
 )
+
+
+TEXT_MODEL = "gemini-3.6-flash"
+IMAGE_MODEL = "gemini-2.5-flash-image"
+
+
+def _extract_json_object(text: str) -> dict:
+    """Parse a JSON object, tolerating Markdown code fences around the response."""
+    cleaned = (text or "").strip()
+    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s*```$", "", cleaned)
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start < 0 or end < start:
+        raise ValueError("The model response did not contain a JSON object.")
+    return json.loads(cleaned[start : end + 1])
+
+
+def _fallback_visual_plan(slide_quotes: list[str], theme: str) -> list[dict]:
+    """Create a safe plan if visual-plan generation or JSON parsing fails."""
+    plan = []
+    total = len(slide_quotes)
+    for index, quote in enumerate(slide_quotes, start=1):
+        role, _ = get_slide_role(index, total)
+        plan.append(
+            {
+                "slide": index,
+                "role": role,
+                "emotion": "emotion appropriate to the quote",
+                "visual_metaphor": (
+                    f"A scene that communicates the meaning of '{quote}' in the context "
+                    f"of '{theme}', without using a literal text-based illustration"
+                ),
+                "composition": (
+                    "Use a distinct camera distance, framing, and subject placement "
+                    "from the other slides while preserving the shared visual style."
+                ),
+                "transition": "Continue the carousel's emotional progression naturally.",
+            }
+        )
+    return plan
+
+
+def _generate_visual_plan(
+    client, theme: str, slide_quotes: list[str]
+) -> tuple[list[dict], str]:
+    """Plan the full sequence before image generation so slides tell one visual story."""
+    quote_lines = "\n".join(
+        f"{index}. {quote}" for index, quote in enumerate(slide_quotes, start=1)
+    )
+    plan_prompt = f"""
+You are the visual art director for an Instagram account called thisisdailywhisper.
+Create a coordinated visual storyboard for a {len(slide_quotes)}-slide carousel.
+
+Theme: {theme}
+
+Exact slide text, in order:
+{quote_lines}
+
+Return ONLY a valid JSON object with this structure:
+{{
+  "sequence_arc": "one concise sentence describing the emotional progression",
+  "slides": [
+    {{
+      "slide": 1,
+      "role": "opening | development | realization | resolution",
+      "emotion": "the main emotion this slide should communicate",
+      "visual_metaphor": "a concrete, imageable scene that expresses this exact slide",
+      "composition": "camera distance, framing, subject placement, and environment",
+      "transition": "how this visual develops from the previous slide"
+    }}
+  ]
+}}
+
+Requirements:
+- Include exactly {len(slide_quotes)} slide objects, in the same order as the supplied text.
+- Keep each visual tied to its slide's meaning; do not invent a different message.
+- Plan the complete sequence together. Make the images feel like consecutive moments
+  in one emotional story, not four unrelated illustrations.
+- Vary the composition and visual metaphor meaningfully between slides. Do not repeat
+  the same pose, camera angle, setting, or framing unless the story requires it.
+- The first slide should be immediately intriguing; the final slide should feel like
+  a fitting emotional conclusion. Middle slides should advance the idea.
+- Keep visual ideas practical to render as a single image.
+- Do not include the quote text in visual_metaphor; the image prompt will add typography.
+- Do not prescribe a different art style or color palette per slide.
+- Avoid relying on clichéd symbols unless they genuinely fit the quote.
+"""
+    try:
+        response = client.models.generate_content(
+            model=TEXT_MODEL,
+            contents=plan_prompt,
+        )
+        parsed = _extract_json_object(response.text)
+        raw_slides = parsed.get("slides", [])
+        by_number = {
+            item.get("slide"): item
+            for item in raw_slides
+            if isinstance(item, dict) and isinstance(item.get("slide"), int)
+        }
+        plan = []
+        fallback = _fallback_visual_plan(slide_quotes, theme)
+        for index, fallback_item in enumerate(fallback, start=1):
+            candidate = by_number.get(index, {})
+            plan.append(
+                {
+                    **fallback_item,
+                    **{
+                        key: str(candidate[key]).strip()
+                        for key in (
+                            "role",
+                            "emotion",
+                            "visual_metaphor",
+                            "composition",
+                            "transition",
+                        )
+                        if candidate.get(key)
+                    },
+                    "slide": index,
+                }
+            )
+        arc = str(parsed.get("sequence_arc", "")).strip()
+        return plan, arc
+    except (ValueError, TypeError, json.JSONDecodeError, AttributeError) as exc:
+        print(f"[VISUAL PLAN] Could not parse storyboard; using fallback plan: {exc}")
+        return _fallback_visual_plan(slide_quotes, theme), (
+            "A cohesive emotional progression from the opening thought to the conclusion."
+        )
+
+
+def _build_slide_prompt(
+    *,
+    slide_index: int,
+    total_slides: int,
+    slide_text: str,
+    visual_plan: dict,
+    sequence_arc: str,
+    shared_style_block: str,
+) -> str:
+    """Combine shared art direction with the individual slide's visual brief."""
+    role, role_guidance = get_slide_role(slide_index, total_slides)
+    return f"""
+Create slide {slide_index} of {total_slides} for an Instagram carousel.
+
+CAROUSEL STORY ARC
+{sequence_arc or "A cohesive emotional progression from opening to conclusion."}
+
+SHARED VISUAL IDENTITY (follow on every slide)
+{shared_style_block}
+
+THIS SLIDE'S NARRATIVE ROLE
+{role.upper()} — {role_guidance}
+The storyboard's role label is: {visual_plan.get("role", role)}.
+Emotion: {visual_plan.get("emotion", "emotion appropriate to the text")}.
+Visual metaphor / scene: {visual_plan.get("visual_metaphor", "")}.
+Composition: {visual_plan.get("composition", "")}.
+Connection to the sequence: {visual_plan.get("transition", "")}.
+
+EXACT QUOTE TO DISPLAY
+{slide_text}
+
+COMPOSITION AND OUTPUT RULES
+- Create one complete, polished image, not a collage or a multi-panel layout.
+- Make this slide visually distinct from the other slides while preserving the same
+  subject identity, art direction, lighting logic, and color grading.
+- Follow the visual metaphor and composition above; do not default to the same centered
+  portrait or background for every slide.
+- Keep the subject and important visual details clear at Instagram feed size.
+- Leave generous top and bottom safe margins and enough uncluttered contrast for text.
+- Place the supplied quote in bold, highly legible white sans-serif type, centered or
+  carefully positioned according to the composition. Do not obscure the subject's face.
+- {TYPOGRAPHY_CONSTRAINT}
+- Do not add captions, labels, signatures, extra words, or decorative text.
+""".strip()
+
 
 def generate_multi_slide_carousel(
     theme: str = None, num_slides: int = 4
 ) -> tuple[list[str], list[str], str, str, str, list[str]]:
-    """Generates an Instagram multi-slide carousel post with visual continuity across separate images."""
+    """Generate carousel text and images with a shared style and content-aware storyboard."""
+    if not isinstance(num_slides, int) or num_slides < 1:
+        raise ValueError("num_slides must be a positive integer.")
+
     client = genai.Client()
     active_theme = theme if theme else get_random_theme()
     chosen_style = get_random_style()
     character_desc, subject_instruction = get_subject_and_instructions(active_theme)
     emotional_modifier = get_emotional_visual_modifier()
 
-    # 1. Fully dynamic, theme-agnostic text prompt generation
-    text_prompt = (
-        f"You are part of the core target audience who has personally experienced the emotions, struggles, desires, and inner conflicts surrounding '{active_theme}'. "
-        f"You don't simply care about this theme — you have lived it, felt its impact, questioned yourself because of it, and carried thoughts you rarely express out loud. "
-        f"Think about the quiet moments of vulnerability, the memories that still stir emotions, the fears people hide behind a smile, the things left unsaid, and the realizations that can suddenly change how someone sees their life. "
-        f"You scroll Instagram searching for something that makes you stop and think, 'That's exactly how I feel, but I've never been able to put it into words.' "
-        f"Connect with the audience through deeply personal, emotionally honest, and universally relatable experiences that awaken memories, create an immediate feeling of being understood, and inspire genuine reflection, emotional connection, and meaningful insights.\n\n"
-        f"1. Generate {num_slides} short, powerful hook sentences (3-6 words max per slide) separated strictly by '|'. "
-        f"Each slide must capture an authentic thought, feeling, or realization that stops your thumb mid-scroll and makes you want to swipe.\n"
-        f"2. CRITICAL SPELLING RULE: Use extremely simple, clean, and common English words. Avoid complex double-consonant spelling words prone to image generation typos (such as 'trapped' or 'shattered'); instead, use clean, foolproof wording.\n"
-        f"3. A 2-3 sentence inspiring overall caption explanation reflecting deeply on the carousel narrative from this audience perspective.\n"
-        f"4. 6 to 9 relevant, high-engagement Instagram hashtags tailored specifically to '{active_theme}' (always include #thisisdailywhisper).\n"
-        f"5. A suggested song title and viral audio genre keyword available on Instagram Audio that matches the emotional vibe.\n\n"
-        f"Format strictly as:\n"
-        f"QUOTE: <slide 1 quote | slide 2 quote | slide 3 quote ...>\n"
-        f"EXPLANATION: <your explanation>\n"
-        f"HASHTAGS: <your hashtags separated by spaces>\n"
-        f"MUSIC: <song name - artist name | genre mood>"
-    )
-    
+    # 1. Generate all slide text and accompanying post metadata.
+    text_prompt = f"""
+You are writing emotionally honest, relatable Instagram carousel content for
+thisisdailywhisper. Theme: "{active_theme}".
+
+Write from the perspective of someone who understands the audience's real feelings,
+inner conflicts, and quiet realizations. Make the reader feel understood rather than
+lectured.
+
+Generate exactly {num_slides} short, powerful quote lines, each 3-6 simple words.
+Separate the quotes with the pipe character | on one line. The sequence should have
+a clear progression: opening hook, development, realization, and a fitting conclusion
+(adapt the progression naturally if there are fewer than four slides).
+Use simple, common English words and avoid spelling-prone words where possible.
+
+Also provide:
+- A 2-3 sentence caption that reflects on the carousel as a whole.
+- 6-9 relevant Instagram hashtags, including #thisisdailywhisper.
+- A suggested song title and artist, followed by a short audio-genre/mood keyword.
+Do not claim the song is trending or available unless you know that reliably.
+
+Format exactly as:
+QUOTE: <quote 1 | quote 2 | ...>
+EXPLANATION: <caption>
+HASHTAGS: <hashtags separated by spaces>
+MUSIC: <song title - artist | genre/mood>
+"""
     sentence_response = client.models.generate_content(
-        model="gemini-3.6-flash",
+        model=TEXT_MODEL,
         contents=text_prompt,
     )
-    raw_text = sentence_response.text.strip()
+    raw_text = (sentence_response.text or "").strip()
 
     quote_raw = ""
     explanation = ""
@@ -63,66 +254,62 @@ def generate_multi_slide_carousel(
 
     for line in raw_text.splitlines():
         if line.startswith("QUOTE:"):
-            quote_raw = line.replace("QUOTE:", "").strip().replace('"', "")
+            quote_raw = line.partition(":")[2].strip().replace('"', "")
         elif line.startswith("EXPLANATION:"):
-            explanation = line.replace("EXPLANATION:", "").strip()
+            explanation = line.partition(":")[2].strip()
         elif line.startswith("HASHTAGS:"):
-            hashtags = line.replace("HASHTAGS:", "").strip()
+            hashtags = line.partition(":")[2].strip() or hashtags
         elif line.startswith("MUSIC:"):
-            music_recommendation = line.replace("MUSIC:", "").strip()
+            music_recommendation = line.partition(":")[2].strip()
 
-    slide_quotes = [q.strip() for q in quote_raw.split("|") if q.strip()]
-
-    while len(slide_quotes) < num_slides:
-        slide_quotes.append(f"Slide {len(slide_quotes) + 1}")
+    slide_quotes = [quote.strip() for quote in quote_raw.split("|") if quote.strip()]
     slide_quotes = slide_quotes[:num_slides]
+    while len(slide_quotes) < num_slides:
+        slide_quotes.append(f"A thought for slide {len(slide_quotes) + 1}")
+
+    # 2. Plan the entire sequence before rendering any image.
+    visual_plan, sequence_arc = _generate_visual_plan(
+        client, active_theme, slide_quotes
+    )
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = Path("output") / "Carousel_Posts" / f"carousel_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    shared_style_block = build_carousel_style_block(
+        chosen_style=chosen_style,
+        emotional_modifier=emotional_modifier,
+        character_desc=character_desc,
+        subject_instruction=subject_instruction,
+    )
+
     generated_image_paths = []
     generated_image_prompts = []
     first_slide_image = None
 
-    # 2. Sequential Slide Rendering with High-Contrast Prompt Styling
-    for idx, slide_text in enumerate(slide_quotes, 1):
-        if idx == 1:
-            image_prompt = (
-                f"You are part of the target audience who has personally lived through the emotions of '{active_theme}'. "
-                f"Design a deeply authentic, thumb-stopping, high-contrast vertical 1080x1350 visual composition for Slide {idx} of {num_slides} with slide text: '{slide_text}' "
-                f"that visually captures a quiet moment of vulnerability and personal realization. "
-                f"Subject: {character_desc}, {emotional_modifier}. "
-                f"Consistency: {subject_instruction} "
-                f"Composition rules: Generous top and bottom safety margins for Instagram UI overlays. "
-                f"{POSE_CONSTRAINT} "
-                f"Overlay typography: Stark white, high-contrast bold sans-serif text reading '{slide_text}' centered cleanly. "
-                f"CRITICAL SPELLING RULE: Double-check letter accuracy to prevent rendering typos."
-            )
-            contents = [image_prompt]
-        else:
-            image_prompt = (
-                f"You are part of the target audience who has personally lived through the emotions of '{active_theme}'. "
-                f"Design the next visual frame for Slide {idx} of {num_slides} with slide text: '{slide_text}', "
-                f"maintaining visual continuity with the reference slide image (keeping the exact same main subject with consistent facial features, hair, and apparel), "
-                f"while shifting the pose, framing, and environment subtly to reflect an emotional turning point or inner breakthrough. "
-                f"Composition rules: High-contrast vertical 1080x1350 canvas with safe margins. "
-                f"{POSE_CONSTRAINT} "
-                f"Overlay typography: Stark white, high-contrast bold sans-serif text reading '{slide_text}' centered cleanly. "
-                f"CRITICAL SPELLING RULE: Double-check letter accuracy to prevent rendering typos."
-            )
-            contents = [first_slide_image, image_prompt]
-            
-        generated_image_prompts.append(image_prompt)    
+    # 3. Render each planned slide, using the first slide as a stable visual reference.
+    for idx, slide_text in enumerate(slide_quotes, start=1):
+        slide_plan = visual_plan[idx - 1]
+        image_prompt = _build_slide_prompt(
+            slide_index=idx,
+            total_slides=num_slides,
+            slide_text=slide_text,
+            visual_plan=slide_plan,
+            sequence_arc=sequence_arc,
+            shared_style_block=shared_style_block,
+        )
+        generated_image_prompts.append(image_prompt)
+
+        # The first image establishes the visual reference. Later images receive it
+        # plus distinct slide directions, reducing style drift without copying layout.
+        contents = [image_prompt] if idx == 1 else [first_slide_image, image_prompt]
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash-image",
+            model=IMAGE_MODEL,
             contents=contents,
             config=types.GenerateContentConfig(
                 response_modalities=["IMAGE"],
-                image_config=types.ImageConfig(
-                    aspect_ratio="4:5",
-                ),
+                image_config=types.ImageConfig(aspect_ratio=ASPECT_RATIO),
             ),
         )
 
@@ -131,22 +318,22 @@ def generate_multi_slide_carousel(
 
         if response.candidates and response.candidates[0].content.parts:
             for part in response.candidates[0].content.parts:
-                if part.inline_data:
-                    raw_image = Image.open(io.BytesIO(part.inline_data.data))
-                    
-                    if idx == 1:
-                        first_slide_image = raw_image.copy()
+                if not part.inline_data:
+                    continue
 
-                    raw_image = raw_image.resize(
-                        (TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS
-                    )
-                    
-                    rgb_image = raw_image.convert("RGB")
-                    rgb_image.save(slide_path_jpg, "JPEG", quality=95, optimize=True)
-                    
-                    image_saved = True
-                    generated_image_paths.append(str(slide_path_jpg))
-                    break
+                raw_image = Image.open(io.BytesIO(part.inline_data.data)).convert("RGB")
+                if idx == 1:
+                    # Preserve the original generated image as the reference, before
+                    # resizing/compression, to avoid accumulating quality loss.
+                    first_slide_image = raw_image.copy()
+
+                raw_image = raw_image.resize(
+                    (TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS
+                )
+                raw_image.save(slide_path_jpg, "JPEG", quality=95, optimize=True)
+                generated_image_paths.append(str(slide_path_jpg))
+                image_saved = True
+                break
 
         if not image_saved:
             raise RuntimeError(f"Failed to generate slide {idx} for carousel.")
