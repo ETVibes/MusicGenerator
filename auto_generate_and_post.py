@@ -90,7 +90,7 @@ Image Prompt(s):
 def compile_images_to_reel(image_paths: list[str], duration_per_slide: float = 3.0) -> str:
     """Compiles a list of image file paths into a single MP4 video reel."""
     from pathlib import Path
-    from moviepy.editor import ImageClip, concatenate_videoclips
+    from moviepy import ImageClip, concatenate_videoclips
 
     reel_output_dir = Path("output") / "Reels"
     reel_output_dir.mkdir(parents=True, exist_ok=True)
