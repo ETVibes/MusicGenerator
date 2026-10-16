@@ -95,7 +95,7 @@ def compile_images_to_reel(image_paths: list[str], duration_per_slide: float = 3
     reel_output_dir = Path("output") / "Reels"
     reel_output_dir.mkdir(parents=True, exist_ok=True)
     
-    clips = [ImageClip(img).set_duration(duration_per_slide) for img in image_paths]
+    clips = [ImageClip(img).with_duration(duration_per_slide) for img in image_paths]
     final_video = concatenate_videoclips(clips, method="compose")
     
     output_video_path = reel_output_dir / "generated_reel.mp4"
