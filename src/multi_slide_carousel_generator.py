@@ -223,15 +223,15 @@ Write from the perspective of someone who understands the audience's real feelin
 inner conflicts, and quiet realizations. Make the reader feel understood rather than
 lectured.
 
-Generate exactly {num_slides} short, powerful quote lines, each 3-6 simple words.
-Separate the quotes with the pipe character | on one line. The sequence should have
-a clear progression: opening hook, development, realization, and a fitting conclusion
-(adapt the progression naturally if there are fewer than four slides).
+Generate exactly {num_slides} short, powerful quote lines.
+Separate the quotes with the pipe character | on one line. The sequence should include:
+an opening hook: a scroll-stopping statement under 10 words , development, realization, and a fitting conclusion
+(these should complete the thought started by the hook).
 Use simple, common English words and avoid spelling-prone words where possible.
 
 Also provide:
 - A 2-3 sentence caption that reflects on the carousel as a whole.
-- 6-9 relevant Instagram hashtags, including #thisisdailywhisper.
+- 5 relevant Instagram hashtags, including #thisisdailywhisper.
 - A suggested song title and artist, followed by a short audio-genre/mood keyword.
 Do not claim the song is trending or available unless you know that reliably.
 
