@@ -64,7 +64,7 @@ def get_random_theme() -> str:
         "inner peace and mindfulness",
         "courage and finding your purpose",
         "gratitude and appreciating small moments",
-        "Love and Romance — emotional intimacy, unspoken feelings, longing, heartbreak, vulnerability, and the quiet realities of loving someone",
+        "Love and Romance",
     ]
     selected = random.choice(themes)
     print(f"[THEME SELECTION] Randomly picked theme: '{selected}'")
