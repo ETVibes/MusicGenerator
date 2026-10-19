@@ -1,4 +1,4 @@
-name: Instagram Carousel Reel
+name: Instagram Carousel Gratitude Reel
 
 on:
   schedule:
@@ -27,7 +27,7 @@ jobs:
       - name: Run Auto Generate & Post Script
         run: |
           SLIDES="${{ github.event.inputs.slides || '4' }}"
-          python auto_generate_and_post.py --mode carousel --type reel --slides "$SLIDES"
+          python auto_generate_and_post.py --theme "gratitude and appreciating small moments" --mode carousel --type reel --slides "$SLIDES"
         env:
           BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
           BUFFER_INSTAGRAM_CHANNEL_ID: ${{ secrets.BUFFER_INSTAGRAM_CHANNEL_ID }}
