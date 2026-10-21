@@ -1,10 +1,8 @@
 name: Instagram Carousel Love Romace Reel
 
 on:
-  schedule:
-    # Runs every Monday at 12:00 PM UTC
-    - cron: '0 12 * * 1'
-  workflow_dispatch: # Allows manual trigger from GitHub UI
+  # Scheduling is turned off. Run manually: GitHub > Actions > this workflow > Run workflow.
+  workflow_dispatch:
 
 jobs:
   run-auto-post:
@@ -27,7 +25,7 @@ jobs:
       - name: Run Auto Generate & Post Script
         run: |
           SLIDES="${{ github.event.inputs.slides || '4' }}"
-          python auto_generate_and_post.py --theme "Love and Romance — emotional intimacy, unspoken feelings, longing, heartbreak, vulnerability, and the quiet realities of loving someone" --mode carousel --type reel --slides "$SLIDES"
+          python auto_generate_and_post.py --theme "Love and Romance" --mode carousel --type reel --slides "$SLIDES"
         env:
           BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
           BUFFER_INSTAGRAM_CHANNEL_ID: ${{ secrets.BUFFER_INSTAGRAM_CHANNEL_ID }}

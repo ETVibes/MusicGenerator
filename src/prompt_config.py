@@ -45,17 +45,27 @@ SLIDE_ROLE_GUIDANCE = {
     ),
 }
 
-
 def get_emotional_visual_modifier() -> str:
     """Return one atmospheric modifier to use consistently across a carousel."""
     modifiers = [
-        "cinematic rim lighting, deep dramatic shadows, restrained focal highlights",
-        "warm golden-hour light, atmospheric contrast, elegant modern styling",
-        "dramatic volumetric lighting, clean depth, expressive but natural emotion",
-        "soft ambient glow, high-contrast clarity, a thoughtful intimate atmosphere",
+        "soft golden window light with a gentle warm glow and light, airy shadows",
+        "warm sunlit atmosphere with a faint lens glow and lifted shadows",
+        "gentle backlight creating a soft halo, bright open background with warm highlights",
     ]
     return random.choice(modifiers)
-
+    
+# Clichés the writing model should avoid in any post type. Edit freely: start short and
+# add phrases you actually see in the outputs.
+BANNED_PHRASES = [
+    "you are enough",
+    "journey",
+    "the universe",
+    "trust the process",
+    "healing isn't linear",
+    "self-love",
+    "believe in yourself",
+    "just breathe",
+]
 
 def get_random_theme() -> str:
     """Select a theme for a new carousel."""
@@ -73,35 +83,10 @@ def get_random_theme() -> str:
 
 def get_random_style() -> str:
     """Return a visual style for the whole carousel, not a separate style per slide."""
-    categories = [
-        "realistic_photography",
-        "realistic_animation",
-        "digital_art_anime",
-    ]
-    chosen_category = random.choice(categories)
-
-    if chosen_category == "realistic_animation":
-        styles = [
-            "high-quality stylized 3D animation, cinematic rim lighting, rich depth of field",
-            "realistic 3D digital render, soft ambient occlusion, elegant wardrobe, bold contrast",
-            "cinematic CGI animation, natural cloth physics, expressive lighting, striking focal depth",
-            "photorealistic stylized 3D render, dramatic warm illumination, crisp edges",
-        ]
-        return random.choice(styles)
-
-    if chosen_category == "realistic_photography":
-        styles = [
-            "high-contrast cinematic 35mm photography, golden-hour tones, rich moody shadows",
-            "editorial lifestyle photography, atmospheric contrast, natural-looking people",
-            "documentary-style portraiture, sharp focal clarity, balanced cinematic lighting",
-            "moody high-end lifestyle photography, rich depth of field, cohesive color grading",
-        ]
-        return random.choice(styles)
-
     styles = [
-        "modern anime style, clean high-contrast line art, dramatic backlighting, rich color",
-        "sleek 3D digital art, luminous ambient glow, cinematic atmosphere, bold shadows",
-        "stylized fantasy concept art, dynamic high-contrast lighting, rich color palette",
+        "cinematic 35mm film photography, soft film grain, shallow depth of field, warm natural color, bright and uplifting",
+        "editorial lifestyle photography, golden-hour light, honey and cream tones, airy and gentle",
+        "soft morning-light photography, pale sky blue and warm peach, calm and luminous",
     ]
     return random.choice(styles)
 
@@ -161,6 +146,7 @@ SHARED CAROUSEL VISUAL IDENTITY
 - Keep the same overall color grading, contrast, lighting logic, rendering medium,
   and level of realism throughout all slides.
 - Use a vertical {TARGET_WIDTH}x{TARGET_HEIGHT} canvas ({ASPECT_RATIO}).
+- The mood must feel warm, hopeful and calm even when the quote is bittersweet; shadows stay soft and lifted.
 - {POSE_CONSTRAINT}
 - Avoid watermarks, logos, borders, collages, split panels, and unrelated background text.
 """.strip()

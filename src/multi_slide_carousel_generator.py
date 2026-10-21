@@ -11,10 +11,11 @@ from pathlib import Path
 
 from google import genai
 from google.genai import types
-from PIL import Image
+from PIL import Image, ImageOps
 
 from .prompt_config import (
     ASPECT_RATIO,
+    BANNED_PHRASES,
     TARGET_HEIGHT,
     TARGET_WIDTH,
     TYPOGRAPHY_CONSTRAINT,
@@ -26,10 +27,8 @@ from .prompt_config import (
     get_subject_and_instructions,
 )
 
-
 TEXT_MODEL = "gemini-3.6-flash"
 IMAGE_MODEL = "gemini-2.5-flash-image"
-
 
 def _extract_json_object(text: str) -> dict:
     """Parse a JSON object, tolerating Markdown code fences around the response."""
@@ -41,7 +40,6 @@ def _extract_json_object(text: str) -> dict:
     if start < 0 or end < start:
         raise ValueError("The model response did not contain a JSON object.")
     return json.loads(cleaned[start : end + 1])
-
 
 def _fallback_visual_plan(slide_quotes: list[str], theme: str) -> list[dict]:
     """Create a safe plan if visual-plan generation or JSON parsing fails."""
@@ -66,7 +64,6 @@ def _fallback_visual_plan(slide_quotes: list[str], theme: str) -> list[dict]:
             }
         )
     return plan
-
 
 def _generate_visual_plan(
     client, theme: str, slide_quotes: list[str]
@@ -154,7 +151,6 @@ Requirements:
             "A cohesive emotional progression from the opening thought to the conclusion."
         )
 
-
 def _build_slide_prompt(
     *,
     slide_index: int,
@@ -200,7 +196,6 @@ COMPOSITION AND OUTPUT RULES
 - Do not add captions, labels, signatures, extra words, or decorative text.
 """.strip()
 
-
 def generate_multi_slide_carousel(
     theme: str = None, num_slides: int = 4
 ) -> tuple[list[str], list[str], str, str, str, list[str]]:
@@ -215,26 +210,31 @@ def generate_multi_slide_carousel(
     emotional_modifier = get_emotional_visual_modifier()
 
     # 1. Generate all slide text and accompanying post metadata.
+    banned = ", ".join(f'"{phrase}"' for phrase in BANNED_PHRASES)
     text_prompt = f"""
-You are writing emotionally honest, relatable Instagram carousel content for
-thisisdailywhisper. Theme: "{active_theme}".
-
-Write from the perspective of someone who understands the audience's real feelings,
-inner conflicts, and quiet realizations. Make the reader feel understood rather than
-lectured.
-
-Generate exactly {num_slides} short, powerful quote lines.
-Separate the quotes with the pipe character | on one line. The sequence should include:
-an opening hook: a scroll-stopping statement under 10 words , development, realization, and a fitting conclusion
-(these should complete the thought started by the hook).
-Use simple, common English words and avoid spelling-prone words where possible.
-
+You write Instagram carousel text for the account thisisdailywhisper. Theme: "{active_theme}".
+ 
+VOICE: a quiet, perceptive friend talking to one person late at night. Warm, plain, specific.
+Never a guru, never preachy, never a poster slogan. Use "you". Name small real-life moments
+and objects (like a message left unsent) instead of abstract ideas. Short sentences.
+The reader should think "how did it know?" and want to send it to someone.
+ 
+Generate exactly {num_slides} short quote lines, separated by the pipe character | on one line:
+- Slide 1: a scroll-stopping hook, at most 10 words. A specific, slightly uncomfortable truth
+  or an unfinished thought that makes the reader need slide 2.
+- Middle slides: develop the thought, one idea each, each pulling the reader forward.
+- Last slide: land the thought with a feeling or a quiet reframe worth saving or sending.
+Each line at most 22 words. Use simple, common English words and avoid spelling-prone words
+where possible.
+Never use these clichés or close variants: {banned}.
+ 
 Also provide:
-- A 2-3 sentence caption that reflects on the carousel as a whole.
+- A 2-3 sentence caption. Open with a hook in the reader's voice and end with a short
+  question or an invitation to save or send it to someone.
 - 5 relevant Instagram hashtags, including #thisisdailywhisper.
 - A suggested song title and artist, followed by a short audio-genre/mood keyword.
 Do not claim the song is trending or available unless you know that reliably.
-
+ 
 Format exactly as:
 QUOTE: <quote 1 | quote 2 | ...>
 EXPLANATION: <caption>
@@ -263,9 +263,10 @@ MUSIC: <song title - artist | genre/mood>
             music_recommendation = line.partition(":")[2].strip()
 
     slide_quotes = [quote.strip() for quote in quote_raw.split("|") if quote.strip()]
-    slide_quotes = slide_quotes[:num_slides]
-    while len(slide_quotes) < num_slides:
-        slide_quotes.append(f"A thought for slide {len(slide_quotes) + 1}")
+    if len(slide_quotes) != num_slides:
+        raise ValueError(
+            f"Expected {num_slides} quotes, got {len(slide_quotes)}: {raw_text!r}"
+        )
 
     # 2. Plan the entire sequence before rendering any image.
     visual_plan, sequence_arc = _generate_visual_plan(
@@ -327,8 +328,8 @@ MUSIC: <song title - artist | genre/mood>
                     # resizing/compression, to avoid accumulating quality loss.
                     first_slide_image = raw_image.copy()
 
-                raw_image = raw_image.resize(
-                    (TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS
+                raw_image = ImageOps.fit(
+                    raw_image, (TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS
                 )
                 raw_image.save(slide_path_jpg, "JPEG", quality=95, optimize=True)
                 generated_image_paths.append(str(slide_path_jpg))
