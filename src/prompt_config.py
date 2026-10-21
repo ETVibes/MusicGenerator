@@ -67,6 +67,38 @@ BANNED_PHRASES = [
     "just breathe",
 ]
 
+# What each theme must express, so the writing model can't drift away from it.
+# Add your own best lines under "examples": they shape the tone more than anything else.
+THEME_BRIEFS = {
+    "gratitude": {
+        "feeling": "warm appreciation: the reader pauses, smiles a little and thinks 'I'm lucky to have this'",
+        "must": "be unmistakably about gratitude: name one specific, ordinary thing worth being thankful for (a person, a habit, a small comfort) and end by saying thank you or inviting the reader to appreciate it today",
+        "examples": [
+            ["Remember when this was all you wanted?",
+             "A quiet morning. Someone who texts back. Coffee still hot.",
+             "You once prayed for a life this ordinary.",
+             "Say thank you before it turns into a memory."],
+            ["Someone stayed, and never made it a big deal.",
+             "No speech. They just kept showing up.",
+             "That's the kind of love you only notice later.",
+             "Tell them 'thank you' before today ends."],
+        ],
+    },
+    "love": {
+        "feeling": "tender, safe, a little hopeful: the reader thinks of one specific person",
+        "must": "be unmistakably about love: show it through one small, specific habit or moment, and end with warmth, not longing",
+        "examples": [],  # add your own best lines
+    },
+}
+ 
+ 
+def get_theme_brief(theme: str) -> dict:
+    """Return the brief for a theme (loose keyword match), or {} if there is none."""
+    for key, brief in THEME_BRIEFS.items():
+        if key in theme.lower():
+            return brief
+    return {}
+    
 def get_random_theme() -> str:
     """Select a theme for a new carousel."""
     themes = [

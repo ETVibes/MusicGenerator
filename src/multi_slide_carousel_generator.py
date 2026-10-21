@@ -25,6 +25,7 @@ from .prompt_config import (
     get_random_theme,
     get_slide_role,
     get_subject_and_instructions,
+    get_theme_brief,
 )
 
 TEXT_MODEL = "gemini-3.6-flash"
@@ -211,6 +212,16 @@ def generate_multi_slide_carousel(
 
     # 1. Generate all slide text and accompanying post metadata.
     banned = ", ".join(f'"{phrase}"' for phrase in BANNED_PHRASES)
+    brief = get_theme_brief(active_theme)
+    theme_block = ""
+    if brief:
+        theme_block = (
+            f'\nThe reader should feel: {brief["feeling"]}.\n'
+            f'The post must {brief["must"]}.\n'
+        )
+        if brief["examples"]:
+            examples = "\n".join("Example: " + " | ".join(e) for e in brief["examples"])
+            theme_block += f"Tone examples for this theme (never copy):\n{examples}\n"
     text_prompt = f"""
 You write Instagram carousel text for the account thisisdailywhisper. Theme: "{active_theme}".
  
