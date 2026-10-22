@@ -4,6 +4,8 @@ Description: Shared configuration and helpers for Instagram carousel prompts.
 ==============================================================================="""
 
 import random
+from PIL import Image, ImageDraw, ImageFont
+import textwrap
 
 # Global resolution configuration optimized for vertical Instagram layouts.
 TARGET_WIDTH = 1080
@@ -67,38 +69,6 @@ BANNED_PHRASES = [
     "just breathe",
 ]
 
-# What each theme must express, so the writing model can't drift away from it.
-# Add your own best lines under "examples": they shape the tone more than anything else.
-THEME_BRIEFS = {
-    "gratitude": {
-        "feeling": "warm appreciation: the reader pauses, smiles a little and thinks 'I'm lucky to have this'",
-        "must": "be unmistakably about gratitude: name one specific, ordinary thing worth being thankful for (a person, a habit, a small comfort) and end by saying thank you or inviting the reader to appreciate it today",
-        "examples": [
-            ["Remember when this was all you wanted?",
-             "A quiet morning. Someone who texts back. Coffee still hot.",
-             "You once prayed for a life this ordinary.",
-             "Say thank you before it turns into a memory."],
-            ["Someone stayed, and never made it a big deal.",
-             "No speech. They just kept showing up.",
-             "That's the kind of love you only notice later.",
-             "Tell them 'thank you' before today ends."],
-        ],
-    },
-    "love": {
-        "feeling": "tender, safe, a little hopeful: the reader thinks of one specific person",
-        "must": "be unmistakably about love: show it through one small, specific habit or moment, and end with warmth, not longing",
-        "examples": [],  # add your own best lines
-    },
-}
- 
- 
-def get_theme_brief(theme: str) -> dict:
-    """Return the brief for a theme (loose keyword match), or {} if there is none."""
-    for key, brief in THEME_BRIEFS.items():
-        if key in theme.lower():
-            return brief
-    return {}
-    
 def get_random_theme() -> str:
     """Select a theme for a new carousel."""
     themes = [
@@ -182,3 +152,82 @@ SHARED CAROUSEL VISUAL IDENTITY
 - {POSE_CONSTRAINT}
 - Avoid watermarks, logos, borders, collages, split panels, and unrelated background text.
 """.strip()
+
+"""===============================================================================
+    Loads an image, draws a wrapped quote onto it with a drop-shadow effect, 
+    and saves the result.
+
+    Args:
+        image_path (str): Path to the source image file.
+        quote (str): The quote text to draw on the image.
+        output_path (str): Path where the final composited image will be saved.
+        font_path (str, optional): Path to the TrueType font file (.ttf). Defaults to Montserrat.
+        font_size (int, optional): Font size to use for the text. Defaults to 52.
+        max_chars_per_line (int, optional): Maximum number of characters per wrapped line. Defaults to 28.
+
+    Returns:
+        str: The file path of the saved output image.
+==============================================================================="""
+def draw_quote_on_image(
+    image_path: str,
+    quote: str,
+    output_path: str,
+    font_path: str = "assets/Font/Montserrat-SemiBold.ttf",
+    font_size: int = 52,
+    max_chars_per_line: int = 28,
+) -> str:
+
+    # 1. Open image and prepare for drawing
+    img = Image.open(image_path).convert("RGB")
+    draw = ImageDraw.Draw(img)
+    width, height = img.size
+
+    # 2. Load font (falls back to default bitmap font if no TTF path is provided)
+    try:
+        if font_path:
+            font = ImageFont.truetype(font_path, font_size)
+        else:
+            # Attempt to use a common default system sans-serif font if available
+            font = ImageFont.truetype("arial.ttf", font_size)
+    except IOError:
+        font = ImageFont.load_default()
+
+    # 3. Wrap text to fit nicely within horizontal margins
+    wrapped_lines = textwrap.wrap(quote, width=max_chars_per_line)
+
+    # 4. Calculate total block height for vertical centering
+    # getmultilinebbox gives precise multi-line dimensions in modern Pillow versions
+    bbox = draw.multiline_textbbox((0, 0), "\n".join(wrapped_lines), font=font, align="center")
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+
+    # Position coordinates (Centered horizontally, lower-middle or center vertically)
+    # For Instagram carousels, keeping text in the middle-lower zone avoids UI overlays.
+    x = (width - text_width) / 2
+    y = (height - text_height) / 2 + 100  # Offset slightly downward
+
+    # 5. Draw text with a drop-shadow / outline for high contrast against photos
+    shadow_offset = 3
+    for line in wrapped_lines:
+        # Measure line width for individual line alignment if needed
+        line_bbox = draw.textbbox((0, 0), line, font=font)
+        line_w = line_bbox[2] - line_bbox[0]
+        line_x = x + (text_width - line_w) / 2  # Center-align individual lines
+
+        # Draw dark shadow/outline offset
+        draw.text(
+            (line_x + shadow_offset, y + shadow_offset), 
+            line, 
+            font=font, 
+            fill=(0, 0, 0, 180)
+        )
+        
+        # Draw main crisp white text
+        draw.text((line_x, y), line, font=font, fill=(255, 255, 255))
+        
+        # Advance y coordinate by line height (approximate via font metrics)
+        y += font.size + 12
+
+    # 6. Save final composite image
+    img.save(output_path, "JPEG", quality=95, optimize=True)
+    return output_path

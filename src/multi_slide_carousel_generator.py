@@ -20,12 +20,12 @@ from .prompt_config import (
     TARGET_WIDTH,
     TYPOGRAPHY_CONSTRAINT,
     build_carousel_style_block,
+    draw_quote_on_image,
     get_emotional_visual_modifier,
     get_random_style,
     get_random_theme,
     get_slide_role,
     get_subject_and_instructions,
-    get_theme_brief,
 )
 
 TEXT_MODEL = "gemini-3.6-flash"
@@ -212,16 +212,6 @@ def generate_multi_slide_carousel(
 
     # 1. Generate all slide text and accompanying post metadata.
     banned = ", ".join(f'"{phrase}"' for phrase in BANNED_PHRASES)
-    brief = get_theme_brief(active_theme)
-    theme_block = ""
-    if brief:
-        theme_block = (
-            f'\nThe reader should feel: {brief["feeling"]}.\n'
-            f'The post must {brief["must"]}.\n'
-        )
-        if brief["examples"]:
-            examples = "\n".join("Example: " + " | ".join(e) for e in brief["examples"])
-            theme_block += f"Tone examples for this theme (never copy):\n{examples}\n"
     text_prompt = f"""
 You write Instagram carousel text for the account thisisdailywhisper. Theme: "{active_theme}".
  
@@ -342,7 +332,18 @@ MUSIC: <song title - artist | genre/mood>
                 raw_image = ImageOps.fit(
                     raw_image, (TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS
                 )
-                raw_image.save(slide_path_jpg, "JPEG", quality=95, optimize=True)
+                temp_path = output_dir / f"temp_slide_{idx}.jpg"
+                raw_image.save(temp_path, "JPEG", quality=95)
+
+                draw_quote_on_image(
+                    image_path=str(temp_path),
+                    quote=slide_text,
+                    output_path=str(slide_path_jpg),
+                    font_path="assets/Font/Montserrat-SemiBold.ttf",
+                    font_size=52,
+                    max_chars_per_line=28
+                )
+                temp_path.unlink(missing_ok=True)
                 generated_image_paths.append(str(slide_path_jpg))
                 image_saved = True
                 break

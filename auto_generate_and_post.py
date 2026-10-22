@@ -87,7 +87,7 @@ Image Prompt(s):
     Returns:
         str: Absolute file path string of the generated reel MP4.
 ==============================================================================="""
-def compile_images_to_reel(image_paths: list[str], duration_per_slide: float = 7.5) -> str:
+def compile_images_to_reel(image_paths: list[str], duration_per_slide: float = 5) -> str:
     """Compiles a list of image file paths into a single MP4 video reel."""
     from pathlib import Path
     from moviepy import ImageClip, concatenate_videoclips
