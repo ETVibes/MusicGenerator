@@ -72,7 +72,7 @@ BANNED_PHRASES = [
 def get_random_theme() -> str:
     """Select a theme for a new carousel."""
     themes = [
-        "personal growth and overcoming obstacles",
+        "growth and courage",
         "mindfulness and peace",
         "courage and finding your purpose",
         "gratitude and appreciating small moments",
