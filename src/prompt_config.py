@@ -73,7 +73,7 @@ def get_random_theme() -> str:
     """Select a theme for a new carousel."""
     themes = [
         "personal growth and overcoming obstacles",
-        "inner peace and mindfulness",
+        "mindfulness and peace",
         "courage and finding your purpose",
         "gratitude and appreciating small moments",
         "Love and Romance",
