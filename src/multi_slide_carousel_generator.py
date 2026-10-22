@@ -26,6 +26,7 @@ from .prompt_config import (
     get_random_theme,
     get_slide_role,
     get_subject_and_instructions,
+    get_text_prompt_segments_by_theme,
 )
 
 TEXT_MODEL = "gemini-3.6-flash"
@@ -203,25 +204,21 @@ def generate_multi_slide_carousel(
     chosen_style = get_random_style()
     character_desc, subject_instruction = get_subject_and_instructions(active_theme)
     emotional_modifier = get_emotional_visual_modifier()
+    feel, voice, slide_one, mid_slides, last_slide, ban = get_text_prompt_segments_by_theme(active_theme)
 
     # 1. Generate all slide text and accompanying post metadata.
     banned = ", ".join(f'"{phrase}"' for phrase in BANNED_PHRASES)
     text_prompt = f"""
-You write Instagram carousel text for the account thisisdailywhisper. Theme: "{active_theme}".
+You write {feel} Instagram carousel text for the account thisisdailywhisper. Theme: "{active_theme}".
  
-VOICE: a quiet, perceptive friend talking to one person late at night. Warm, plain, specific.
-Never a guru, never preachy, never a poster slogan. Use "you". Name small real-life moments
-and objects (like a message left unsent) instead of abstract ideas. Short sentences.
-The reader should think "how did it know?" and want to send it to someone.
+VOICE: {voice}
  
 Generate exactly {num_slides} short quote lines, separated by the pipe character | on one line:
-- Slide 1: a scroll-stopping hook, at most 10 words. A specific, slightly uncomfortable truth
-  or an unfinished thought that makes the reader need slide 2.
-- Middle slides: develop the thought, one idea each, each pulling the reader forward.
-- Last slide: land the thought with a feeling or a quiet reframe worth saving or sending.
-Each line at most 22 words. Use simple, common English words and avoid spelling-prone words
-where possible.
-Never use these clichés or close variants: {banned}.
+- Slide 1: {slide_one}
+- Middle slides: {mid_slides}
+- Last slide: {last_slide}
+Each line at most 20 words. Keep it entirely {feel}.
+{ban}.
  
 Also provide:
 - A 2-3 sentence caption. Open with a hook in the reader's voice and end with a short
