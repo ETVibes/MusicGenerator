@@ -180,9 +180,6 @@ Visual metaphor / scene: {visual_plan.get("visual_metaphor", "")}.
 Composition: {visual_plan.get("composition", "")}.
 Connection to the sequence: {visual_plan.get("transition", "")}.
 
-EXACT QUOTE TO DISPLAY
-{slide_text}
-
 COMPOSITION AND OUTPUT RULES
 - Create one complete, polished image, not a collage or a multi-panel layout.
 - Make this slide visually distinct from the other slides while preserving the same
@@ -190,11 +187,8 @@ COMPOSITION AND OUTPUT RULES
 - Follow the visual metaphor and composition above; do not default to the same centered
   portrait or background for every slide.
 - Keep the subject and important visual details clear at Instagram feed size.
-- Leave generous top and bottom safe margins and enough uncluttered contrast for text.
-- Place the supplied quote in bold, highly legible white sans-serif type, centered or
-  carefully positioned according to the composition. Do not obscure the subject's face.
-- {TYPOGRAPHY_CONSTRAINT}
-- Do not add captions, labels, signatures, extra words, or decorative text.
+- **Do not render any text, letters, or quotes inside the image.** Leave the middle and upper areas clean and uncluttered so text can be overlaid later.
+- Avoid watermarks, logos, borders, collages, split panels, and unrelated background text.
 """.strip()
 
 def generate_multi_slide_carousel(
