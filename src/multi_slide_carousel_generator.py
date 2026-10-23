@@ -245,7 +245,7 @@ VOICE: {voice}
 Generate exactly {num_slides} short quote lines, separated by the pipe character | on one line:
 - Slide 1: {slide_one}
 - Middle slides: {mid_slides}
-- Last slide: {last_slide}
+- Last slide (Must act as a share trigger or direct prompt to send to someone special): {last_slide}
 Each line at most 20 words. Keep it entirely {feel}.
 {ban}.
  

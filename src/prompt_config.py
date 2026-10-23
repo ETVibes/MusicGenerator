@@ -218,6 +218,40 @@ def get_text_prompt_segments_by_theme(theme: str) -> tuple[str, str, str, str, s
 
     if "love" in normalized_theme or "romance" in normalized_theme:
         feel = "positive, warm, and romantic"
+        voice = "Speaking directly about an intimate bond or a shared moment between two people. Relatable, tender, and deeply personal. Use 'you'."
+        slide_one = "A sharp, highly relatable hook about the comfort of being with your favorite person."
+        mid_slides = "Deepening observations about quiet glances, shared safety, and effortless love."
+        last_slide = "A heartwarming resolution that naturally compels someone to send it to their partner or best friend."
+        ban = "No heartbreak, no sadness, no nostalgia."
+    elif "mindfulness" in normalized_theme or "peace" in normalized_theme:
+        feel = "calm, grounding, and reflective"
+        voice = "A gentle, shared reflection on finding peace alongside someone else or navigating a busy world together. Use 'you'."
+        slide_one = "A hook addressing a shared feeling of exhaustion or wanting to slow down with someone."
+        mid_slides = "Simple observations about finding a safe harbor in another person or a quiet space."
+        last_slide = "A grounding takeaway with a clear invitation to drop it in a group chat or send to a friend."
+        ban = "No anxiety, no panic, no stress."
+    elif "growth" in normalized_theme or "courage" in normalized_theme:
+        feel = "encouraging, empowering, and strong"
+        voice = "A supportive voice speaking to someone you care about who is fighting silent battles. Inspiring and steady. Use 'you'."
+        slide_one = "A bold hook about the person who stays and shows up through hard seasons."
+        mid_slides = "Honest encouragement about building strength together or being someone's safe place."
+        last_slide = "An empowering reminder to share with someone who needs a reminder of their inner strength."
+        ban = "No self-doubt, no giving up, no despair."
+    else:
+        feel = "warm, perceptive, and comforting"
+        voice = "A quiet, perceptive friend talking about the unspoken dynamics between close people. Warm and specific. Use 'you'."
+        slide_one = "A scroll-stopping hook about a shared unspoken feeling or relationship dynamic."
+        mid_slides = "Quiet observations that develop the emotional bond naturally."
+        last_slide = "A comforting takeaway built to be shared with a close friend."
+        ban = "No cynicism, no coldness, no judgment."
+
+    return feel, voice, slide_one, mid_slides, last_slide, ban
+    
+def get_text_prompt_segments_by_theme_old(theme: str) -> tuple[str, str, str, str, str, str]:
+    normalized_theme = (theme or "").strip().lower()
+
+    if "love" in normalized_theme or "romance" in normalized_theme:
+        feel = "positive, warm, and romantic"
         voice = "A warm, affectionate partner or close friend speaking with genuine care. Uplifting, tender, and reassuring. Use 'you'."
         slide_one = "A sweet, inviting hook about appreciating your person or a moment of connection."
         mid_slides = "Tender, positive observations about comfort, safety, or everyday affection."
