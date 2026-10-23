@@ -17,13 +17,13 @@ from .prompt_config import (
     ASPECT_RATIO,
     TARGET_HEIGHT,
     TARGET_WIDTH,
-    TYPOGRAPHY_CONSTRAINT,
     SLIDE_ROLE_GUIDANCE,
     POSE_CONSTRAINT,
     draw_quote_on_image,
     get_random_theme,
     get_subject_and_instructions,
     get_text_prompt_segments_by_theme,
+    get_style_and_modifier_for_theme,
 )
 
 TEXT_MODEL = "gemini-3.6-flash"

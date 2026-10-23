@@ -15,7 +15,7 @@ from .prompt_config import (
     POSE_CONSTRAINT,
     TARGET_HEIGHT,
     TARGET_WIDTH,
-    get_emotional_visual_modifier,
+    get_style_and_modifier_for_theme,
     get_random_style,
     get_random_theme,
     get_subject_and_instructions,
@@ -35,6 +35,7 @@ def generate_single_image_post(
     )
     chosen_style = get_random_style()
     character_desc, subject_instruction = get_subject_and_instructions(active_theme)
+    chosen_style, emotional_modifier = get_style_and_modifier_for_theme(active_theme)
 
     if num_panels == 1:
         text_prompt = (
@@ -75,7 +76,7 @@ def generate_single_image_post(
 
         image_prompt = (
             f"{chosen_style}. Theme: {active_theme}. "
-            f"Subject: {character_desc}, {get_emotional_visual_modifier()}. "
+            f"Subject: {character_desc}, {emotional_modifier}. "
             f"Composition: High contrast vertical 1080x1350 canvas with generous top and bottom safety margins for UI overlays. "
             f"{POSE_CONSTRAINT} "
             f"Overlay typography: Stark white, high-contrast bold sans-serif text reading '{short_sentence}' centered cleanly."
@@ -126,7 +127,7 @@ def generate_single_image_post(
 
         image_prompt = (
             f"{chosen_style}. {num_panels}-row vertically stacked layout on a high-contrast 1080x1350 canvas. Theme: {active_theme}. "
-            f"Subject: {character_desc}, {get_emotional_visual_modifier()}. "
+            f"Subject: {character_desc}, {emotional_modifier}. "
             f"Narrative panels with open loops: {panel_descriptions}. "
             f"{POSE_CONSTRAINT} "
             f"{subject_instruction} Clean horizontal panel borders, distinct framing per row, and high-contrast bold typography for max mobile readability."
