@@ -15,22 +15,53 @@ from PIL import Image, ImageOps
 
 from .prompt_config import (
     ASPECT_RATIO,
-    BANNED_PHRASES,
     TARGET_HEIGHT,
     TARGET_WIDTH,
     TYPOGRAPHY_CONSTRAINT,
-    build_carousel_style_block,
+    SLIDE_ROLE_GUIDANCE,
+    POSE_CONSTRAINT,
     draw_quote_on_image,
-    get_emotional_visual_modifier,
-    get_random_style,
     get_random_theme,
-    get_slide_role,
     get_subject_and_instructions,
     get_text_prompt_segments_by_theme,
 )
 
 TEXT_MODEL = "gemini-3.6-flash"
 IMAGE_MODEL = "gemini-2.5-flash-image"
+
+def get_slide_role(index: int, total: int) -> tuple[str, str]:
+    """Return the narrative role and role guidance for a slide at a given position."""
+    if index <= 1:
+        key = "opening"
+    elif index >= total:
+        key = "resolution"
+    elif index == 2:
+        key = "development"
+    else:
+        key = "realization"
+
+    return key, SLIDE_ROLE_GUIDANCE[key]
+
+def build_carousel_style_block(
+    chosen_style: str,
+    emotional_modifier: str,
+    character_desc: str,
+    subject_instruction: str,
+) -> str:
+    """Build the shared visual identity reused in every slide prompt."""
+    return f"""
+SHARED CAROUSEL VISUAL IDENTITY
+- Art direction: {chosen_style}
+- Lighting and atmosphere: {emotional_modifier}
+- Main subject: {character_desc}
+- Subject continuity: {subject_instruction}
+- Keep the same overall color grading, contrast, lighting logic, rendering medium,
+  and level of realism throughout all slides.
+- Use a vertical {TARGET_WIDTH}x{TARGET_HEIGHT} canvas ({ASPECT_RATIO}).
+- The mood must feel warm, hopeful and calm even when the quote is bittersweet; shadows stay soft and lifted.
+- {POSE_CONSTRAINT}
+- Avoid watermarks, logos, borders, collages, split panels, and unrelated background text.
+""".strip()
 
 def _extract_json_object(text: str) -> dict:
     """Parse a JSON object, tolerating Markdown code fences around the response."""
@@ -201,13 +232,11 @@ def generate_multi_slide_carousel(
 
     client = genai.Client()
     active_theme = theme if theme else get_random_theme()
-    chosen_style = get_random_style()
+    chosen_style, emotional_modifier = get_style_and_modifier_for_theme(active_theme)
     character_desc, subject_instruction = get_subject_and_instructions(active_theme)
-    emotional_modifier = get_emotional_visual_modifier()
     feel, voice, slide_one, mid_slides, last_slide, ban = get_text_prompt_segments_by_theme(active_theme)
 
     # 1. Generate all slide text and accompanying post metadata.
-    banned = ", ".join(f'"{phrase}"' for phrase in BANNED_PHRASES)
     text_prompt = f"""
 You write {feel} Instagram carousel text for the account thisisdailywhisper. Theme: "{active_theme}".
  

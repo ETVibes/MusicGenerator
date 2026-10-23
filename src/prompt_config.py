@@ -15,7 +15,9 @@ ASPECT_RATIO = "4:5"
 # Shared image-quality and typography constraints.
 POSE_CONSTRAINT = (
     "Full tasteful apparel, natural posture, clean anatomy, realistic hands, "
-    "clear subject separation, and high-contrast edge definition."
+    "clear subject separation, high-contrast edge definition, and "
+    "complete anatomical integrity (no accidental cropping of heads, faces, or limbs "
+    "within the frame)."
 )
 
 TYPOGRAPHY_CONSTRAINT = (
@@ -47,27 +49,43 @@ SLIDE_ROLE_GUIDANCE = {
     ),
 }
 
-def get_emotional_visual_modifier() -> str:
-    """Return one atmospheric modifier to use consistently across a carousel."""
-    modifiers = [
-        "soft golden window light with a gentle warm glow and light, airy shadows",
-        "warm sunlit atmosphere with a faint lens glow and lifted shadows",
-        "gentle backlight creating a soft halo, bright open background with warm highlights",
-    ]
-    return random.choice(modifiers)
+THEME_PRESETS = {
+    "love and romance": {
+        "style": "high-end editorial lifestyle photography, soft romantic tones, intimate framing, cream and warm amber color palette, elegant and timeless",
+        "modifier": "warm sunlit atmosphere with a faint golden hour lens glow and soft, lifted shadows",
+    },
+    "mindfulness and peace": {
+        "style": "minimalist aesthetic documentary photography, tranquil atmosphere, muted organic earth tones, calm and deeply grounding composition",
+        "modifier": "gentle morning window light creating a soft halo, clean airy background with peaceful highlights",
+    },
+    "growth and courage": {
+        "style": "cinematic 35mm documentary film photography, rich organic textures, moody depth of field, striking contrast, powerful and inspiring",
+        "modifier": "dramatic directional sunlight cutting through shadows with an empowering, cinematic warmth",
+    },
+    "courage and finding your purpose": {
+        "style": "cinematic 35mm documentary film photography, rich organic textures, moody depth of field, striking contrast, powerful and inspiring",
+        "modifier": "dramatic directional sunlight cutting through shadows with an empowering, cinematic warmth",
+    },
+    "gratitude and appreciating small moments": {
+        "style": "cozy aesthetic lifestyle photography, tactile textures, warm beige and soft terracotta tones, candid and deeply nostalgic",
+        "modifier": "soft indoor golden hour light filtering through sheer curtains, creating a quiet and cherished mood",
+    },
+}
+
+def get_style_and_modifier_for_theme(theme: str) -> tuple[str, str]:
+    """Return a curated style and emotional modifier pair based on the theme."""
+    normalized = (theme or "").strip().lower()
     
-# Clichés the writing model should avoid in any post type. Edit freely: start short and
-# add phrases you actually see in the outputs.
-BANNED_PHRASES = [
-    "you are enough",
-    "journey",
-    "the universe",
-    "trust the process",
-    "healing isn't linear",
-    "self-love",
-    "believe in yourself",
-    "just breathe",
-]
+    # Look for a matching theme key, or fall back to a default pair
+    preset = THEME_PRESETS.get(normalized)
+    if not preset:
+        # Fallback if a theme doesn't match an exact key
+        preset = {
+            "style": "editorial lifestyle photography, golden-hour light, honey and cream tones, airy and gentle",
+            "modifier": "warm sunlit atmosphere with a faint lens glow and lifted shadows",
+        }
+    
+    return preset["style"], preset["modifier"]
 
 def get_random_theme() -> str:
     """Select a theme for a new carousel."""
@@ -76,22 +94,11 @@ def get_random_theme() -> str:
         "mindfulness and peace",
         "courage and finding your purpose",
         "gratitude and appreciating small moments",
-        "Love and Romance",
+        "love and romance",
     ]
     selected = random.choice(themes)
     print(f"[THEME SELECTION] Randomly picked theme: '{selected}'")
     return selected
-
-
-def get_random_style() -> str:
-    """Return a visual style for the whole carousel, not a separate style per slide."""
-    styles = [
-        "cinematic 35mm film photography, soft film grain, shallow depth of field, warm natural color, bright and uplifting",
-        "editorial lifestyle photography, golden-hour light, honey and cream tones, airy and gentle",
-        "soft morning-light photography, pale sky blue and warm peach, calm and luminous",
-    ]
-    return random.choice(styles)
-
 
 def get_subject_and_instructions(active_theme: str) -> tuple[str, str]:
     """Determine a reusable subject description and continuity instructions."""
@@ -116,42 +123,6 @@ def get_subject_and_instructions(active_theme: str) -> tuple[str, str]:
         )
 
     return character_desc, subject_instruction
-
-
-def get_slide_role(index: int, total: int) -> tuple[str, str]:
-    """Return the narrative role and role guidance for a slide at a given position."""
-    if index <= 1:
-        key = "opening"
-    elif index >= total:
-        key = "resolution"
-    elif index == 2:
-        key = "development"
-    else:
-        key = "realization"
-
-    return key, SLIDE_ROLE_GUIDANCE[key]
-
-
-def build_carousel_style_block(
-    chosen_style: str,
-    emotional_modifier: str,
-    character_desc: str,
-    subject_instruction: str,
-) -> str:
-    """Build the shared visual identity reused in every slide prompt."""
-    return f"""
-SHARED CAROUSEL VISUAL IDENTITY
-- Art direction: {chosen_style}
-- Lighting and atmosphere: {emotional_modifier}
-- Main subject: {character_desc}
-- Subject continuity: {subject_instruction}
-- Keep the same overall color grading, contrast, lighting logic, rendering medium,
-  and level of realism throughout all slides.
-- Use a vertical {TARGET_WIDTH}x{TARGET_HEIGHT} canvas ({ASPECT_RATIO}).
-- The mood must feel warm, hopeful and calm even when the quote is bittersweet; shadows stay soft and lifted.
-- {POSE_CONSTRAINT}
-- Avoid watermarks, logos, borders, collages, split panels, and unrelated background text.
-""".strip()
 
 """===============================================================================
     Loads an image, draws a wrapped quote onto it with a drop-shadow effect, 
