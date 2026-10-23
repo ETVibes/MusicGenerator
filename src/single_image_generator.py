@@ -16,7 +16,6 @@ from .prompt_config import (
     TARGET_HEIGHT,
     TARGET_WIDTH,
     get_style_and_modifier_for_theme,
-    get_random_style,
     get_random_theme,
     get_subject_and_instructions,
 )
@@ -33,7 +32,7 @@ def generate_single_image_post(
         if force_panels in [1, 2, 3]
         else random.choice([1, 2, 3])
     )
-    chosen_style = get_random_style()
+    
     character_desc, subject_instruction = get_subject_and_instructions(active_theme)
     chosen_style, emotional_modifier = get_style_and_modifier_for_theme(active_theme)
 
