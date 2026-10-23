@@ -8,6 +8,7 @@ import io
 import json
 import re
 from pathlib import Path
+import subprocess
 
 from google import genai
 from google.genai import types
@@ -223,9 +224,94 @@ COMPOSITION AND OUTPUT RULES
 - Avoid watermarks, logos, borders, collages, split panels, and unrelated background text.
 """.strip()
 
+def generate_voiceover(
+    slide_quotes: list[str], 
+    output_path: str = "output/voiceover.mp3", 
+    voice_name: str = "alloy"
+) -> str:
+    """
+    Generates a continuous text-to-speech voiceover audio file reading the slide quotes 
+    using the Gemini TTS API, and saves it to disk.
+    """
+    client = genai.Client()
+    
+    script = ". ".join(quote.strip() for quote in slide_quotes) + "."
+    tts_prompt = f"Read the following text aloud in a calm, warm, conversational, and steady tone suitable for a cinematic lifestyle reel: {script}"
+    
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=tts_prompt,
+        config=types.GenerateContentConfig(
+            response_modalities=["AUDIO"],
+            speech_config=types.SpeechConfig(
+                voice_config=types.VoiceConfig(
+                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                        voice_name=voice_name
+                    )
+                )
+            )
+        )
+    )
+    
+    audio_saved = False
+    output_file = Path(output_path)
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    if response.candidates and response.candidates[0].content.parts:
+        for part in response.candidates[0].content.parts:
+            if part.inline_data and part.inline_data.data:
+                with open(output_file, "wb") as f:
+                    f.write(part.inline_data.data)
+                audio_saved = True
+                break
+                
+    if not audio_saved:
+        raise RuntimeError("Failed to generate voiceover audio stream.")
+        
+    return str(output_file)
+
+def add_background_music_and_voiceover(
+    video_path: str,
+    voiceover_path: str,
+    music_path: str,
+    output_path: str,
+    voiceover_volume: float = 1.0,
+    music_volume: float = 0.15,
+) -> str:
+    """
+    Mixes a text-to-speech voiceover track and a background music track directly into 
+    the final video using FFmpeg, applying audio ducking so the voice remains prominent.
+    """
+    output_file = Path(output_path)
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", video_path,
+        "-i", voiceover_path,
+        "-i", music_path,
+        "-filter_complex",
+        f"[1:a]volume={voiceover_volume}[vo];"
+        f"[2:a]volume={music_volume}[bg];"
+        f"[vo][bg]amix=inputs=2:duration=first:dropout_transition=2[a:mix]",
+        "-map", "0:v:0",
+        "-map", "[a:mix]",
+        "-c:v", "copy",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-pix_fmt", "yuv420p",
+        str(output_file)
+    ]
+
+    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"FFmpeg audio mixing failed:\n{result.stderr}")
+
+    return str(output_file)
+    
 def generate_multi_slide_carousel(
-    theme: str = None, num_slides: int = 4
-) -> tuple[list[str], list[str], str, str, str, list[str]]:
+    theme: str = None, num_slides: int = 4, background_music_path: str = None
+) -> tuple[str, list[str], str, str, str, list[str]]:
     """Generate carousel text and images with a shared style and content-aware storyboard."""
     if not isinstance(num_slides, int) or num_slides < 1:
         raise ValueError("num_slides must be a positive integer.")
@@ -371,8 +457,40 @@ MUSIC: <song title - artist | genre/mood>
         if not image_saved:
             raise RuntimeError(f"Failed to generate slide {idx} for carousel.")
 
+    # 4. Generate Voiceover & Compile into Reel with Background Audio
+    voiceover_path = generate_voiceover(slide_quotes, output_path=str(output_dir / "voiceover.mp3"))
+    
+    base_video_path = str(output_dir / "base_reel.mp4")
+    image_list_txt = output_dir / "images.txt"
+    with open(image_list_txt, "w") as f:
+        for img_path in generated_image_paths:
+            f.write(f"file '{Path(img_path).name}'\nduration 3\n")
+        if generated_image_paths:
+            f.write(f"file '{Path(generated_image_paths[-1]).name}'\n")
+
+    subprocess.run([
+        "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", "images.txt",
+        "-vsync", "vfr", "-pix_fmt", "yuv420p", "-r", "30", base_video_path
+    ], cwd=output_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    final_reel_path = str(output_dir / "final_reel_with_audio.mp4")
+    
+    if background_music_path and Path(background_music_path).exists():
+        add_background_music_and_voiceover(
+            video_path=base_video_path,
+            voiceover_path=voiceover_path,
+            music_path=background_music_path,
+            output_path=final_reel_path
+        )
+    else:
+        subprocess.run([
+            "ffmpeg", "-y", "-i", base_video_path, "-i", voiceover_path,
+            "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac",
+            "-pix_fmt", "yuv420p", final_reel_path
+        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
     return (
-        generated_image_paths,
+        final_reel_path,
         slide_quotes,
         explanation,
         hashtags,
