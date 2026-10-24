@@ -231,44 +231,49 @@ def generate_voiceover(
 ) -> str:
     """
     Generates a continuous text-to-speech voiceover audio file reading the slide quotes 
-    using the Gemini TTS API, and saves it to disk.
+    using the Gemini TTS API, and saves it to disk with robust error handling.
     """
-    client = genai.Client()
-    
-    script = ". ".join(quote.strip() for quote in slide_quotes) + "."
-    tts_prompt = f"Read the following text aloud in a calm, warm, conversational, and steady tone suitable for a cinematic lifestyle reel: {script}"
-    
-    response = client.models.generate_content(
-        model=VOICEOVER_MODEL,
-        contents=tts_prompt,
-        config=types.GenerateContentConfig(
-            response_modalities=["AUDIO"],
-            speech_config=types.SpeechConfig(
-                voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                        voice_name=voice_name
+    try:
+        client = genai.Client()
+        
+        script = ". ".join(quote.strip() for quote in slide_quotes) + "."
+        tts_prompt = f"Read the following text aloud in a calm, warm, conversational, and steady tone suitable for a cinematic lifestyle reel: {script}"
+        
+        response = client.models.generate_content(
+            model=VOICEOVER_MODEL,
+            contents=tts_prompt,
+            config=types.GenerateContentConfig(
+                response_modalities=["AUDIO"],
+                speech_config=types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                            voice_name=voice_name
+                        )
                     )
                 )
             )
         )
-    )
-    
-    audio_saved = False
-    output_file = Path(output_path)
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    
-    if response.candidates and response.candidates[0].content.parts:
-        for part in response.candidates[0].content.parts:
-            if part.inline_data and part.inline_data.data:
-                with open(output_file, "wb") as f:
-                    f.write(part.inline_data.data)
-                audio_saved = True
-                break
-                
-    if not audio_saved:
-        raise RuntimeError("Failed to generate voiceover audio stream.")
         
-    return str(output_file)
+        audio_saved = False
+        output_file = Path(output_path)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        if response.candidates and response.candidates[0].content.parts:
+            for part in response.candidates[0].content.parts:
+                if part.inline_data and part.inline_data.data:
+                    with open(output_file, "wb") as f:
+                        f.write(part.inline_data.data)
+                    audio_saved = True
+                    break
+                    
+        if not audio_saved:
+            raise RuntimeError("The model response did not contain inline audio data parts.")
+            
+        return str(output_file)
+
+    except Exception as e:
+        print(f"❌ [VOICEOVER ERROR] Detailed exception during voice generation: {type(e).__name__}: {e}")
+        raise RuntimeError(f"Voiceover generation failed: {e}") from e
 
 def add_background_music_and_voiceover(
     video_path: str,
