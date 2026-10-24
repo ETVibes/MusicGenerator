@@ -6,3 +6,4 @@ requests
 cloudinary
 moviepy
 imageio[ffmpeg]
+gTTS>=2.5.0

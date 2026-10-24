@@ -224,74 +224,34 @@ COMPOSITION AND OUTPUT RULES
 - Avoid watermarks, logos, borders, collages, split panels, and unrelated background text.
 """.strip()
 
+from gtts import gTTS
+
 def generate_voiceover(
     slide_quotes: list[str], 
     output_path: str = "output/voiceover.mp3", 
-    voice_name: str = "alloy"
+    lang: str = "en"
 ) -> str:
     """
-    Generates a continuous text-to-speech voiceover audio file reading the slide quotes 
-    using the Gemini TTS API, with robust parsing for audio response parts.
+    Generates a natural-sounding voiceover audio file reading the slide quotes 
+    locally using gTTS (Google Text-to-Speech), completely free and stable.
     """
     try:
-        client = genai.Client()
-        
+        # Combine the slides into a smooth reading script
         script = ". ".join(quote.strip() for quote in slide_quotes) + "."
-        tts_prompt = f"Read the following text aloud in a calm, warm, conversational, and steady tone suitable for a cinematic lifestyle reel: {script}"
         
-        response = client.models.generate_content(
-            model=VOICEOVER_MODEL,
-            contents=tts_prompt,
-            config=types.GenerateContentConfig(
-                response_modalities=["AUDIO"],
-                speech_config=types.SpeechConfig(
-                    voice_config=types.VoiceConfig(
-                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                            voice_name=voice_name
-                        )
-                    )
-                )
-            )
-        )
+        # Initialize gTTS with the text and language
+        tts = gTTS(text=script, lang=lang, slow=False)
         
-        audio_bytes = None
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
         
-        # Safely extract audio data from any part containing inline data or raw bytes
-        if response.candidates:
-            for candidate in response.candidates:
-                if candidate.content and candidate.content.parts:
-                    for part in candidate.content.parts:
-                        if hasattr(part, "inline_data") and part.inline_data and part.inline_data.data:
-                            audio_bytes = part.inline_data.data
-                            break
-                        elif hasattr(part, "executable_code") and hasattr(part, "code"):
-                            pass
-                        # Fallback check if bytes are stored directly
-                        elif getattr(part, "text", None) is None and hasattr(part, "as_dict"):
-                            pass
-                    if audio_bytes:
-                        break
-                        
-        if not audio_bytes:
-            # Fallback inspection if response has direct blob data attributes
-            try:
-                for part in response.function_calls or []:
-                    pass
-            except Exception:
-                pass
-                
-        if not audio_bytes:
-            raise RuntimeError(f"Full response structure received but no audio bytes found: {response}")
-            
-        with open(output_file, "wb") as f:
-            f.write(audio_bytes)
-            
+        # Save directly to disk
+        tts.save(str(output_file))
+        
         return str(output_file)
 
     except Exception as e:
-        print(f"❌ [VOICEOVER ERROR] Detailed exception during voice generation: {type(e).__name__}: {e}")
+        print(f"❌ [VOICEOVER ERROR] Failed to generate local voiceover: {e}")
         raise RuntimeError(f"Voiceover generation failed: {e}") from e
 
 def add_background_music_and_voiceover(
