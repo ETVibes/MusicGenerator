@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 from .config import CAROUSEL_CURRENT_DIR, FONTS_DIR
 import subprocess
+import asyncio
 
 from google import genai
 from google.genai import types
@@ -236,29 +237,42 @@ def generate_voiceover(
     slide_quotes: list[str], 
     output_path: str = "output/voiceover.mp3", 
     lang: str = "en"
-) -> str:
+) -> tuple[str, list[float]]:
     """
-    Generates a natural-sounding voiceover audio file reading the slide quotes 
-    locally using gTTS (Google Text-to-Speech), completely free and stable.
+    Generates a warm, human-sounding male voiceover using Edge-TTS 
+    and calculates balanced slide durations based on word counts.
     """
+    import edge_tts
+
     try:
-        logger.info("[VOICEOVER] Combining slide quotes into speech script...")
+        logger.info("[VOICEOVER] Combining slide quotes into speech script for Edge-TTS...")
         script = ". ".join(quote.strip() for quote in slide_quotes) + "."
-        
-        logger.info("[VOICEOVER] Initializing gTTS text-to-speech conversion...")
-        tts = gTTS(text=script, lang=lang, slow=False)
         
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
         
-        logger.info(f"[VOICEOVER] Saving voiceover file to: {output_file}")
-        tts.save(str(output_file))
+        # Use a warm, smooth, expressive male neural voice
+        voice_name = "en-US-GuyNeural"
         
-        logger.info("[VOICEOVER] Voiceover generation completed successfully.")
-        return str(output_file)
+        async def _synthesize():
+            logger.info(f"[VOICEOVER] Initializing Edge-TTS with voice '{voice_name}'...")
+            communicate = edge_tts.Communicate(script, voice_name)
+            await communicate.save(str(output_file))
+
+        asyncio.run(_synthesize())
+        
+        # Calculate dynamic slide durations (~0.48 seconds per word for a calm, relaxed reading pace, minimum 4.0s)
+        slide_durations = []
+        for quote in slide_quotes:
+            word_count = len(quote.split())
+            duration = max(4.0, word_count * 0.48)
+            slide_durations.append(duration)
+            
+        logger.info(f"[VOICEOVER] Voiceover saved and calm slide durations calculated: {slide_durations}")
+        return str(output_file), slide_durations
 
     except Exception as e:
-        logger.error(f"❌ [VOICEOVER ERROR] Failed to generate local voiceover: {e}", exc_info=True)
+        logger.error(f"❌ [VOICEOVER ERROR] Failed to generate edge-tts voiceover: {e}", exc_info=True)
         raise RuntimeError(f"Voiceover generation failed: {e}") from e
 
 def add_background_music_and_voiceover(
@@ -462,13 +476,14 @@ MUSIC: <song title - artist | genre/mood>
 
     # 4. Generate Voiceover & Compile into Reel with Background Audio
     logger.info("[CAROUSEL GENERATION] Starting audio generation and video compilation...")
-    voiceover_path = generate_voiceover(slide_quotes, output_path=str(output_dir / "voiceover.mp3"))
+    voiceover_path, slide_durations = generate_voiceover(slide_quotes, output_path=str(output_dir / "voiceover.mp3"))
     
     base_video_path = str(output_dir / "base_reel.mp4")
     image_list_txt = output_dir / "images.txt"
     with open(image_list_txt, "w") as f:
-        for img_path in generated_image_paths:
-            f.write(f"file '{Path(img_path).name}'\nduration 3\n")
+        for idx, img_path in enumerate(generated_image_paths):
+            duration = slide_durations[idx] if idx < len(slide_durations) else 4.0
+            f.write(f"file '{Path(img_path).name}'\nduration {duration}\n")
         if generated_image_paths:
             f.write(f"file '{Path(generated_image_paths[-1]).name}'\n")
 
