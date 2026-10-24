@@ -20,10 +20,10 @@ load_dotenv()
 
 # Import generation and publishing functions
 try:
-    from src.Publish_IG_Post import publish_latest_single_image, publish_carousel_post, publish_latest_reel
-    from src.prompt_config import get_random_theme
-    from src.single_image_generator import generate_single_image_post
-    from src.multi_slide_carousel_generator import generate_multi_slide_carousel
+    from Publish_IG_Post import publish_latest_single_image, publish_carousel_post, publish_latest_reel
+    from prompt_config import get_random_theme
+    from single_image_generator import generate_single_image_post
+    from multi_slide_carousel_generator import generate_multi_slide_carousel
 except ImportError as e:
     print(f"❌ Error importing project modules: {e}")
     sys.exit(1)

@@ -6,6 +6,7 @@ Description: Generates Instagram carousel text and a coordinated set of images.
 from datetime import datetime
 import io
 import json
+import logging
 import re
 from pathlib import Path
 from .config import CAROUSEL_CURRENT_DIR, FONTS_DIR
@@ -27,6 +28,8 @@ from .prompt_config import (
     get_text_prompt_segments_by_theme,
     get_style_and_modifier_for_theme,
 )
+
+logger = logging.getLogger("CarouselGenerator")
 
 TEXT_MODEL = VOICEOVER_MODEL = "gemini-3.6-flash"
 IMAGE_MODEL = "gemini-2.5-flash-image"
@@ -146,6 +149,7 @@ Requirements:
 - Avoid relying on clichéd symbols unless they genuinely fit the quote.
 """
     try:
+        logger.info("[VISUAL PLAN] Requesting visual storyboard plan from Gemini...")
         response = client.models.generate_content(
             model=TEXT_MODEL,
             contents=plan_prompt,
@@ -179,9 +183,10 @@ Requirements:
                 }
             )
         arc = str(parsed.get("sequence_arc", "")).strip()
+        logger.info(f"[VISUAL PLAN] Storyboard plan successfully built. Arc: {arc}")
         return plan, arc
     except (ValueError, TypeError, json.JSONDecodeError, AttributeError) as exc:
-        print(f"[VISUAL PLAN] Could not parse storyboard; using fallback plan: {exc}")
+        logger.warning(f"[VISUAL PLAN] Could not parse storyboard; using fallback plan: {exc}")
         return _fallback_visual_plan(slide_quotes, theme), (
             "A cohesive emotional progression from the opening thought to the conclusion."
         )
@@ -237,22 +242,23 @@ def generate_voiceover(
     locally using gTTS (Google Text-to-Speech), completely free and stable.
     """
     try:
-        # Combine the slides into a smooth reading script
+        logger.info("[VOICEOVER] Combining slide quotes into speech script...")
         script = ". ".join(quote.strip() for quote in slide_quotes) + "."
         
-        # Initialize gTTS with the text and language
+        logger.info("[VOICEOVER] Initializing gTTS text-to-speech conversion...")
         tts = gTTS(text=script, lang=lang, slow=False)
         
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
         
-        # Save directly to disk
+        logger.info(f"[VOICEOVER] Saving voiceover file to: {output_file}")
         tts.save(str(output_file))
         
+        logger.info("[VOICEOVER] Voiceover generation completed successfully.")
         return str(output_file)
 
     except Exception as e:
-        print(f"❌ [VOICEOVER ERROR] Failed to generate local voiceover: {e}")
+        logger.error(f"❌ [VOICEOVER ERROR] Failed to generate local voiceover: {e}", exc_info=True)
         raise RuntimeError(f"Voiceover generation failed: {e}") from e
 
 def add_background_music_and_voiceover(
@@ -270,6 +276,7 @@ def add_background_music_and_voiceover(
     output_file = Path(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
+    logger.info(f"[FFMPEG MIX] Mixing voiceover ({voiceover_path}) and music ({music_path}) into video ({video_path})...")
     cmd = [
         "ffmpeg", "-y",
         "-i", video_path,
@@ -290,8 +297,10 @@ def add_background_music_and_voiceover(
 
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if result.returncode != 0:
+        logger.error(f"❌ [FFMPEG MIX ERROR] Audio mixing failed:\n{result.stderr}")
         raise RuntimeError(f"FFmpeg audio mixing failed:\n{result.stderr}")
 
+    logger.info(f"[FFMPEG MIX] Final mixed video successfully created at: {output_file}")
     return str(output_file)
     
 def generate_multi_slide_carousel(
@@ -303,6 +312,8 @@ def generate_multi_slide_carousel(
 
     client = genai.Client()
     active_theme = theme if theme else get_random_theme()
+    logger.info(f"[CAROUSEL GENERATION] Active theme selected: '{active_theme}' (slides count: {num_slides})")
+
     chosen_style, emotional_modifier = get_style_and_modifier_for_theme(active_theme)
     character_desc, subject_instruction = get_subject_and_instructions(active_theme)
     feel, voice, slide_one, mid_slides, last_slide, ban = get_text_prompt_segments_by_theme(active_theme)
@@ -333,6 +344,7 @@ EXPLANATION: <caption>
 HASHTAGS: <hashtags separated by spaces>
 MUSIC: <song title - artist | genre/mood>
 """
+    logger.info("[CAROUSEL GENERATION] Requesting slide text and captions from Gemini text model...")
     sentence_response = client.models.generate_content(
         model=TEXT_MODEL,
         contents=text_prompt,
@@ -356,9 +368,12 @@ MUSIC: <song title - artist | genre/mood>
 
     slide_quotes = [quote.strip() for quote in quote_raw.split("|") if quote.strip()]
     if len(slide_quotes) != num_slides:
+        logger.error(f"❌ [CAROUSEL ERROR] Expected {num_slides} quotes, got {len(slide_quotes)}. Raw output: {raw_text!r}")
         raise ValueError(
             f"Expected {num_slides} quotes, got {len(slide_quotes)}: {raw_text!r}"
         )
+
+    logger.info(f"[CAROUSEL GENERATION] Successfully generated {len(slide_quotes)} quotes.")
 
     # 2. Plan the entire sequence before rendering any image.
     visual_plan, sequence_arc = _generate_visual_plan(
@@ -366,6 +381,7 @@ MUSIC: <song title - artist | genre/mood>
     )
 
     output_dir = CAROUSEL_CURRENT_DIR
+    logger.info(f"[CAROUSEL GENERATION] Preparing output directory: {output_dir}")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     shared_style_block = build_carousel_style_block(
@@ -381,6 +397,7 @@ MUSIC: <song title - artist | genre/mood>
 
     # 3. Render each planned slide, using the first slide as a stable visual reference.
     for idx, slide_text in enumerate(slide_quotes, start=1):
+        logger.info(f"[CAROUSEL GENERATION] Rendering slide {idx} of {num_slides}...")
         slide_plan = visual_plan[idx - 1]
         image_prompt = _build_slide_prompt(
             slide_index=idx,
@@ -436,12 +453,15 @@ MUSIC: <song title - artist | genre/mood>
                 temp_path.unlink(missing_ok=True)
                 generated_image_paths.append(str(slide_path_jpg))
                 image_saved = True
+                logger.info(f"  └─ Slide {idx} successfully saved to {slide_path_jpg}")
                 break
 
         if not image_saved:
+            logger.error(f"❌ [CAROUSEL ERROR] Failed to generate image part for slide {idx}.")
             raise RuntimeError(f"Failed to generate slide {idx} for carousel.")
 
     # 4. Generate Voiceover & Compile into Reel with Background Audio
+    logger.info("[CAROUSEL GENERATION] Starting audio generation and video compilation...")
     voiceover_path = generate_voiceover(slide_quotes, output_path=str(output_dir / "voiceover.mp3"))
     
     base_video_path = str(output_dir / "base_reel.mp4")
@@ -452,6 +472,7 @@ MUSIC: <song title - artist | genre/mood>
         if generated_image_paths:
             f.write(f"file '{Path(generated_image_paths[-1]).name}'\n")
 
+    logger.info("[CAROUSEL GENERATION] Compiling image sequence into base MP4 via FFmpeg...")
     subprocess.run([
         "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", "images.txt",
         "-vsync", "vfr", "-pix_fmt", "yuv420p", "-r", "30", base_video_path
@@ -460,6 +481,7 @@ MUSIC: <song title - artist | genre/mood>
     final_reel_path = str(output_dir / "final_reel_with_audio.mp4")
     
     if background_music_path and Path(background_music_path).exists():
+        logger.info(f"[CAROUSEL GENERATION] Adding background music from {background_music_path}...")
         add_background_music_and_voiceover(
             video_path=base_video_path,
             voiceover_path=voiceover_path,
@@ -467,6 +489,7 @@ MUSIC: <song title - artist | genre/mood>
             output_path=final_reel_path
         )
     else:
+        logger.info("[CAROUSEL GENERATION] Merging voiceover track into base video (no background music path provided)...")
         subprocess.run([
             "ffmpeg", "-y", "-i", base_video_path, "-i", voiceover_path,
             "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac",
@@ -474,8 +497,10 @@ MUSIC: <song title - artist | genre/mood>
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     if not Path(final_reel_path).exists():
+        logger.error(f"❌ [CAROUSEL ERROR] Final reel file was not created at expected path: {final_reel_path}")
         raise RuntimeError(f"Final reel file was not created at: {final_reel_path}")
         
+    logger.info(f"🎉 [CAROUSEL GENERATION] Complete! Final reel ready at: {final_reel_path}")
     return (
         final_reel_path,
         slide_quotes,
