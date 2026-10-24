@@ -180,7 +180,7 @@ def run_auto_publish(theme: str = None, mode: str = "single", post_type: str = "
     try:
         if post_type.lower() == "reel":
             print("  └─ Publishing compiled video Reel directly...")
-            from src.config import REEL_DIR
+            from config import REEL_DIR
             
             target_reel = REEL_DIR / "generated_reel.mp4"
             target_reel.parent.mkdir(parents=True, exist_ok=True)
