@@ -9,7 +9,7 @@ import glob
 import logging
 import os
 from pathlib import Path
-from src.config import SINGLE_IMAGE_DIR, CAROUSEL_CURRENT_DIR, REEL_DIR
+from .config import SINGLE_IMAGE_DIR, CAROUSEL_CURRENT_DIR, REEL_DIR
 import time
 import requests
 from dotenv import load_dotenv
