@@ -365,7 +365,7 @@ MUSIC: <song title - artist | genre/mood>
     )
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = Path("output") / "Carousel_Posts" / f"carousel_{timestamp}"
+    output_dir = Path("output") / "Carousel_Posts" / "current"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     shared_style_block = build_carousel_style_block(
