@@ -142,7 +142,7 @@ def run_auto_publish(theme: str = None, mode: str = "single", post_type: str = "
     try:
         if mode == "carousel":
             # Generate multi-slide images and narrative text payload
-            image_paths, slide_quotes, explanation, hashtags, music_recommendation, image_prompts = (
+            reel_path, slide_quotes, explanation, hashtags, music_recommendation, image_prompts = (
                 generate_multi_slide_carousel(theme=theme, num_slides=num_slides)
             )
             headline = " | ".join(slide_quotes)
@@ -153,16 +153,14 @@ def run_auto_publish(theme: str = None, mode: str = "single", post_type: str = "
                 formatted_prompts.append(f"--- Slide {idx} Prompt ---\n{p}")
             image_prompt_info = "\n\n".join(formatted_prompts)
             
-            print("  └─ Carousel Generation Success!")
-            print(f"  └─ Total Slides Saved: {len(image_paths)}")
-            for idx, p in enumerate(image_paths, 1):
-                print(f"     Slide {idx}: {p}")
+            print("  └─ Carousel & Reel Generation Success!")
+            print(f"  └─ Final Reel Saved: {reel_path}")
         else:
             # Generate single image/panel and post text payload
             image_path, headline, explanation, hashtags, music_recommendation, image_prompt = (
                 generate_single_image_post(theme)
             )
-            image_paths = [image_path]
+            reel_path = image_path
             image_prompt_info = image_prompt
             print("  └─ Single Image Generation Success!")
             print(f"  └─ Quote Embedded: \"{headline}\"")
@@ -181,11 +179,22 @@ def run_auto_publish(theme: str = None, mode: str = "single", post_type: str = "
 
     try:
         if post_type.lower() == "reel":
-            print("  └─ Compiling generated images into video Reel format...")
-            compile_images_to_reel(image_paths)
+            print("  └─ Publishing compiled video Reel directly...")
+            # If publish_latest_reel reads from output/Reels/generated_reel.mp4, 
+            # copy or ensure reel_path is placed there:
+            reels_dir = Path("output") / "Reels"
+            reels_dir.mkdir(parents=True, exist_ok=True)
+            target_reel = reels_dir / "generated_reel.mp4"
+            
+            if Path(reel_path).resolve() != target_reel.resolve():
+                import shutil
+                shutil.copy(reel_path, target_reel)
+                
             res = publish_latest_reel(caption)
         elif mode == "carousel" and "publish_carousel_post" in globals():
-            res = publish_carousel_post(image_paths, caption)
+            # If posting as a carousel instead of a reel, you can pass the individual images directory/paths if needed
+            # For now, ensure your image paths collection is handled correctly if posting a carousel format.
+            res = publish_carousel_post([reel_path], caption)
         else:
             res = publish_latest_single_image(caption)
 
