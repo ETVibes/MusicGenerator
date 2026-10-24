@@ -27,7 +27,7 @@ from .prompt_config import (
     get_style_and_modifier_for_theme,
 )
 
-TEXT_MODEL = "gemini-3.6-flash"
+TEXT_MODEL = VOICEOVER_MODEL = "gemini-3.6-flash"
 IMAGE_MODEL = "gemini-2.5-flash-image"
 
 def get_slide_role(index: int, total: int) -> tuple[str, str]:
@@ -239,7 +239,7 @@ def generate_voiceover(
     tts_prompt = f"Read the following text aloud in a calm, warm, conversational, and steady tone suitable for a cinematic lifestyle reel: {script}"
     
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model=VOICEOVER_MODEL,
         contents=tts_prompt,
         config=types.GenerateContentConfig(
             response_modalities=["AUDIO"],
