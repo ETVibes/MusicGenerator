@@ -494,7 +494,11 @@ MUSIC: <song title - artist | genre/mood>
             "ffmpeg", "-y", "-i", base_video_path, "-i", voiceover_path,
             "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac",
             "-pix_fmt", "yuv420p", final_reel_path
-        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        
+        if result.returncode != 0:
+            print(f"❌ FFmpeg stderr: {result.stderr}")
+            raise RuntimeError(f"FFmpeg failed with code {result.returncode}")
 
     if not Path(final_reel_path).exists():
         logger.error(f"❌ [CAROUSEL ERROR] Final reel file was not created at expected path: {final_reel_path}")
