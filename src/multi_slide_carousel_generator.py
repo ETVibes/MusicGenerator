@@ -259,7 +259,7 @@ def generate_voiceover(
     slide_durations = []
     
     # Warm, rich, emotional narrative male voice (BrianNeural or GuyNeural)
-    voice_name = "en-US-GuyNeural"
+    voice_name = "en-US-ChristopherNeural"
     
     async def _synthesize_slide(text: str, index: int) -> str:
         clip_path = audio_clips_dir / f"slide_{index}_voice.mp3"
