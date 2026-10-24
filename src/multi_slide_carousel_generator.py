@@ -473,10 +473,14 @@ MUSIC: <song title - artist | genre/mood>
             f.write(f"file '{Path(generated_image_paths[-1]).name}'\n")
 
     logger.info("[CAROUSEL GENERATION] Compiling image sequence into base MP4 via FFmpeg...")
-    subprocess.run([
+    compile_result = subprocess.run([
         "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", "images.txt",
-        "-vsync", "vfr", "-pix_fmt", "yuv420p", "-r", "30", base_video_path
-    ], cwd=output_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        "-pix_fmt", "yuv420p", "-r", "30", "base_reel.mp4"
+    ], cwd=output_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+    if compile_result.returncode != 0:
+        logger.error(f"❌ [FFMPEG COMPILE ERROR] Base video compilation failed:\n{compile_result.stderr}")
+        raise RuntimeError(f"FFmpeg base video compilation failed with code {compile_result.returncode}")
 
     final_reel_path = str(output_dir / "final_reel_with_audio.mp4")
     
