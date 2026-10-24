@@ -491,10 +491,10 @@ MUSIC: <song title - artist | genre/mood>
     else:
         logger.info("[CAROUSEL GENERATION] Merging voiceover track into base video (no background music path provided)...")
         result = subprocess.run([
-            "ffmpeg", "-y", "-i", base_video_path, "-i", voiceover_path,
+            "ffmpeg", "-y", "-i", "base_reel.mp4", "-i", "voiceover.mp3",
             "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac",
-            "-pix_fmt", "yuv420p", final_reel_path
-        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            "-pix_fmt", "yuv420p", "final_reel_with_audio.mp4"
+        ], cwd=output_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         
         if result.returncode != 0:
             print(f"❌ FFmpeg stderr: {result.stderr}")
