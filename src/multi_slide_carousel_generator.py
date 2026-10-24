@@ -231,49 +231,68 @@ COMPOSITION AND OUTPUT RULES
 - Avoid watermarks, logos, borders, collages, split panels, and unrelated background text.
 """.strip()
 
-from gtts import gTTS
+def get_audio_duration(file_path: str) -> float:
+    """Helper to get the exact duration of an MP3 file using ffprobe."""
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", file_path],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True
+        )
+        return float(result.stdout.strip())
+    except Exception:
+        return 4.0
 
 def generate_voiceover(
     slide_quotes: list[str], 
-    output_path: str = "output/voiceover.mp3", 
-    lang: str = "en"
+    output_dir: Path
 ) -> tuple[str, list[float]]:
     """
-    Generates a warm, human-sounding male voiceover using Edge-TTS 
-    and calculates balanced slide durations based on word counts.
+    Generates individual audio clips for each slide using Edge-TTS with a warm male voice,
+    measures their precise durations, and merges them into a perfectly paced final track.
     """
     import edge_tts
+    
+    audio_clips_dir = output_dir / "individual_audio_clips"
+    audio_clips_dir.mkdir(parents=True, exist_ok=True)
+    
+    individual_audio_paths = []
+    slide_durations = []
+    
+    # Warm, rich, emotional narrative male voice (BrianNeural or GuyNeural)
+    voice_name = "en-US-GuyNeural"
+    
+    async def _synthesize_slide(text: str, index: int) -> str:
+        clip_path = audio_clips_dir / f"slide_{index}_voice.mp3"
+        clean_text = text.strip() + "."
+        # Slower rate and lower pitch for a warm, human, calming storytelling pace
+        communicate = edge_tts.Communicate(clean_text, voice_name, rate="-8%", pitch="-3Hz")
+        await communicate.save(str(clip_path))
+        return str(clip_path)
 
-    try:
-        logger.info("[VOICEOVER] Combining slide quotes into speech script for Edge-TTS...")
-        script = ". ".join(quote.strip() for quote in slide_quotes) + "."
-        
-        output_file = Path(output_path)
-        output_file.parent.mkdir(parents=True, exist_ok=True)
-        
-        # Use a warm, smooth, expressive male neural voice
-        voice_name = "en-US-GuyNeural"
-        
-        async def _synthesize():
-            logger.info(f"[VOICEOVER] Initializing Edge-TTS with voice '{voice_name}'...")
-            communicate = edge_tts.Communicate(script, voice_name)
-            await communicate.save(str(output_file))
+    async def _generate_all():
+        for idx, quote in enumerate(slide_quotes, start=1):
+            path = await _synthesize_slide(quote, idx)
+            individual_audio_paths.append(path)
 
-        asyncio.run(_synthesize())
-        
-        # Calculate dynamic slide durations (~0.48 seconds per word for a calm, relaxed reading pace, minimum 4.0s)
-        slide_durations = []
-        for quote in slide_quotes:
-            word_count = len(quote.split())
-            duration = max(4.0, word_count * 0.48)
-            slide_durations.append(duration)
-            
-        logger.info(f"[VOICEOVER] Voiceover saved and calm slide durations calculated: {slide_durations}")
-        return str(output_file), slide_durations
+    asyncio.run(_generate_all())
+    
+    concat_txt_path = audio_clips_dir / "audio_concat.txt"
+    with open(concat_txt_path, "w") as f:
+        for clip in individual_audio_paths:
+            f.write(f"file '{Path(clip).name}'\n")
+            dur = get_audio_duration(clip)
+            # Match slide duration 1:1 precisely to the exact audio clip length
+            slide_durations.append(dur)
 
-    except Exception as e:
-        logger.error(f"❌ [VOICEOVER ERROR] Failed to generate edge-tts voiceover: {e}", exc_info=True)
-        raise RuntimeError(f"Voiceover generation failed: {e}") from e
+    final_voiceover_path = output_dir / "voiceover.mp3"
+    
+    subprocess.run([
+        "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", "audio_concat.txt",
+        "-c", "copy", str(final_voiceover_path)
+    ], cwd=audio_clips_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+
+    logger.info(f"[VOICEOVER] Perfectly synchronized slide durations: {slide_durations}")
+    return str(final_voiceover_path), slide_durations
 
 def add_background_music_and_voiceover(
     video_path: str,
@@ -423,8 +442,6 @@ MUSIC: <song title - artist | genre/mood>
         )
         generated_image_prompts.append(image_prompt)
 
-        # The first image establishes the visual reference. Later images receive it
-        # plus distinct slide directions, reducing style drift without copying layout.
         contents = [image_prompt] if idx == 1 else [first_slide_image, image_prompt]
 
         response = client.models.generate_content(
@@ -446,8 +463,6 @@ MUSIC: <song title - artist | genre/mood>
 
                 raw_image = Image.open(io.BytesIO(part.inline_data.data)).convert("RGB")
                 if idx == 1:
-                    # Preserve the original generated image as the reference, before
-                    # resizing/compression, to avoid accumulating quality loss.
                     first_slide_image = raw_image.copy()
 
                 raw_image = ImageOps.fit(
@@ -476,7 +491,7 @@ MUSIC: <song title - artist | genre/mood>
 
     # 4. Generate Voiceover & Compile into Reel with Background Audio
     logger.info("[CAROUSEL GENERATION] Starting audio generation and video compilation...")
-    voiceover_path, slide_durations = generate_voiceover(slide_quotes, output_path=str(output_dir / "voiceover.mp3"))
+    voiceover_path, slide_durations = generate_voiceover(slide_quotes, output_dir=output_dir)
     
     base_video_path = str(output_dir / "base_reel.mp4")
     image_list_txt = output_dir / "images.txt"
