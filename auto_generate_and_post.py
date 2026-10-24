@@ -180,11 +180,10 @@ def run_auto_publish(theme: str = None, mode: str = "single", post_type: str = "
     try:
         if post_type.lower() == "reel":
             print("  └─ Publishing compiled video Reel directly...")
-            # If publish_latest_reel reads from output/Reels/generated_reel.mp4, 
-            # copy or ensure reel_path is placed there:
-            reels_dir = Path("output") / "Reels"
-            reels_dir.mkdir(parents=True, exist_ok=True)
-            target_reel = reels_dir / "generated_reel.mp4"
+            from src.config import REEL_DIR
+            
+            target_reel = REEL_DIR / "generated_reel.mp4"
+            target_reel.parent.mkdir(parents=True, exist_ok=True)
             
             if Path(reel_path).resolve() != target_reel.resolve():
                 import shutil

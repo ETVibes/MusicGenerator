@@ -8,6 +8,7 @@ import io
 import json
 import re
 from pathlib import Path
+from .config import CAROUSEL_CURRENT_DIR, FONTS_DIR
 import subprocess
 
 from google import genai
@@ -364,8 +365,7 @@ MUSIC: <song title - artist | genre/mood>
         client, active_theme, slide_quotes
     )
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = Path("output") / "Carousel_Posts" / "current"
+    output_dir = CAROUSEL_CURRENT_DIR
     output_dir.mkdir(parents=True, exist_ok=True)
 
     shared_style_block = build_carousel_style_block(
@@ -429,7 +429,7 @@ MUSIC: <song title - artist | genre/mood>
                     image_path=str(temp_path),
                     quote=slide_text,
                     output_path=str(slide_path_jpg),
-                    font_path="assets/Font/Montserrat-SemiBold.ttf",
+                    font_path=str(FONTS_DIR / "Montserrat-SemiBold.ttf"),
                     font_size=52,
                     max_chars_per_line=28
                 )
@@ -473,6 +473,9 @@ MUSIC: <song title - artist | genre/mood>
             "-pix_fmt", "yuv420p", final_reel_path
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
+    if not Path(final_reel_path).exists():
+        raise RuntimeError(f"Final reel file was not created at: {final_reel_path}")
+        
     return (
         final_reel_path,
         slide_quotes,

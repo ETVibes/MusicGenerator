@@ -9,6 +9,7 @@ import glob
 import logging
 import os
 from pathlib import Path
+from src.config import SINGLE_IMAGE_DIR, CAROUSEL_CURRENT_DIR, REEL_DIR
 import time
 import requests
 from dotenv import load_dotenv
@@ -29,12 +30,6 @@ BUFFER_CHANNEL_ID = os.getenv("BUFFER_INSTAGRAM_CHANNEL_ID")
 CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
 CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
 CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
-
-# Dynamically set IMAGE_DIR relative to project root directory
-BASE_DIR = Path(__file__).resolve().parent.parent
-SINGLE_IMAGE_DIR = BASE_DIR / "output" / "Single_Image"
-CAROUSEL_DIR = BASE_DIR / "output" / "Carousel_Posts"
-REEL_DIR = BASE_DIR / "output" / "Reels"
 
 """===============================================================================
     Finds the most recently modified image (.jpg, .jpeg, .png) in the specified directory.
@@ -78,32 +73,21 @@ def get_latest_image(folder_path: Path) -> str:
         FileNotFoundError: If the base directory does not exist, contains no subdirectories,
                           or contains no valid slide images.
 ==============================================================================="""
-def get_latest_carousel_images(base_carousel_dir: Path = CAROUSEL_DIR) -> list[str]:
-    """Finds the most recently created carousel folder and returns all sorted slide image paths within it."""
+def get_latest_carousel_images(base_carousel_dir: Path = CAROUSEL_CURRENT_DIR) -> list[str]:
+    """Finds slide images directly from the static current carousel folder."""
     base_carousel_dir = Path(base_carousel_dir)
     if not base_carousel_dir.exists():
         logger.error(f"Carousel directory does not exist: {base_carousel_dir}")
         raise FileNotFoundError(f"Carousel directory does not exist: {base_carousel_dir}")
 
-    # Find all carousel timestamp subdirectories
-    subdirs = [p for p in base_carousel_dir.iterdir() if p.is_dir()]
-    if not subdirs:
-        logger.error(f"No carousel folders found in {base_carousel_dir}")
-        raise FileNotFoundError(f"No carousel folders found in {base_carousel_dir}")
-
-    # Select the most recent carousel directory
-    latest_folder = max(subdirs, key=os.path.getmtime)
-    logger.info(f"Selected latest carousel folder: {latest_folder}")
-
-    # Fetch and sort all slide image files sequentially (slide_1, slide_2, ...)
     extensions = ("*.jpg", "*.jpeg", "*.png")
     files = []
     for ext in extensions:
-        files.extend(glob.glob(str(latest_folder / ext)))
+        files.extend(glob.glob(str(base_carousel_dir / ext)))
 
     if not files:
-        logger.error(f"No slides found in latest carousel folder: {latest_folder}")
-        raise FileNotFoundError(f"No slides found in latest carousel folder: {latest_folder}")
+        logger.error(f"No slides found in carousel directory: {base_carousel_dir}")
+        raise FileNotFoundError(f"No slides found in carousel directory: {base_carousel_dir}")
 
     sorted_slides = sorted(files)
     logger.info(f"Found {len(sorted_slides)} slide images to publish: {sorted_slides}")
