@@ -147,6 +147,91 @@ def draw_quote_on_image(
     font_size: int = 52,
     max_chars_per_line: int = 28,
 ) -> str:
+    """Loads an image, draws a wrapped quote onto it with separate styling for a CTA, and saves the result."""
+    # 1. Open image and prepare for drawing
+    img = Image.open(image_path).convert("RGB")
+    draw = ImageDraw.Draw(img)
+    width, height = img.size
+
+    # 2. Load font
+    try:
+        if font_path:
+            font = ImageFont.truetype(font_path, font_size)
+        else:
+            font = ImageFont.truetype("arial.ttf", font_size)
+    except IOError:
+        font = ImageFont.load_default()
+
+    # 3. Separate main text from CTA if a double newline delimiter exists
+    parts = quote.split("\n\n")
+    main_text = parts[0]
+    cta_text = parts[1] if len(parts) > 1 else None
+
+    main_lines = textwrap.wrap(main_text, width=max_chars_per_line)
+    cta_lines = textwrap.wrap(cta_text, width=max_chars_per_line) if cta_text else []
+
+    # 4. Calculate total block height for vertical centering
+    all_lines = main_lines + ([""] + cta_lines if cta_lines else [])
+    bbox = draw.multiline_textbbox((0, 0), "\n".join(all_lines), font=font, align="center")
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+
+    # Position coordinates (Centered horizontally, lower-middle or center vertically)
+    x = (width - text_width) / 2
+    y = (height - text_height) / 2 + 100  # Offset slightly downward
+
+    shadow_offset = 3
+
+    # 5. Draw main narrative text lines (White)
+    for line in main_lines:
+        line_bbox = draw.textbbox((0, 0), line, font=font)
+        line_w = line_bbox[2] - line_bbox[0]
+        line_x = x + (text_width - line_w) / 2
+
+        # Draw dark shadow/outline offset
+        draw.text(
+            (line_x + shadow_offset, y + shadow_offset), 
+            line, 
+            font=font, 
+            fill=(0, 0, 0, 180)
+        )
+        # Draw main crisp white text
+        draw.text((line_x, y), line, font=font, fill=(255, 255, 255))
+        y += font.size + 12
+
+    # 6. Draw CTA lines on a new block with a different color (Gold / Yellow #FFD700)
+    if cta_lines:
+        y += 16  # Add extra spacing buffer before the CTA paragraph
+        cta_color = (255, 215, 0)
+
+        for line in cta_lines:
+            line_bbox = draw.textbbox((0, 0), line, font=font)
+            line_w = line_bbox[2] - line_bbox[0]
+            line_x = x + (text_width - line_w) / 2
+
+            # Draw dark shadow/outline offset
+            draw.text(
+                (line_x + shadow_offset, y + shadow_offset), 
+                line, 
+                font=font, 
+                fill=(0, 0, 0, 180)
+            )
+            # Draw colored CTA text
+            draw.text((line_x, y), line, font=font, fill=cta_color)
+            y += font.size + 12
+
+    # 7. Save final composite image
+    img.save(output_path, "JPEG", quality=95, optimize=True)
+    return output_path
+    
+def draw_quote_on_image_old(
+    image_path: str,
+    quote: str,
+    output_path: str,
+    font_path: str = "assets/Font/Montserrat-SemiBold.ttf",
+    font_size: int = 52,
+    max_chars_per_line: int = 28,
+) -> str:
 
     # 1. Open image and prepare for drawing
     img = Image.open(image_path).convert("RGB")
