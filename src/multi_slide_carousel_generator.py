@@ -242,7 +242,7 @@ def get_audio_duration(file_path: str) -> float:
     except Exception:
         return 4.0
 
-def generate_voiceover(
+def generate_voiceover_old(
     slide_quotes: list[str], 
     output_dir: Path
 ) -> tuple[str, list[float]]:
@@ -284,7 +284,7 @@ def generate_voiceover(
             # Match slide duration 1:1 precisely to the exact audio clip length
             slide_durations.append(dur)
 
-    final_voiceover_path = output_dir / "voiceover.mp3"
+    final_voiceover_path = output_dir / "voiceover.wav"
     
     subprocess.run([
         "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", "audio_concat.txt",
@@ -294,6 +294,61 @@ def generate_voiceover(
     logger.info(f"[VOICEOVER] Perfectly synchronized slide durations: {slide_durations}")
     return str(final_voiceover_path), slide_durations
 
+def generate_voiceover(
+    slide_quotes: list[str], 
+    output_dir: Path
+) -> tuple[str, list[float]]:
+    """
+    Generates individual audio clips for each slide using Piper TTS with LibriTTS high-quality
+    model (Speaker 14), slows the cadence down using --length-scale, and merges them into a final track.
+    """
+    audio_clips_dir = output_dir / "individual_audio_clips"
+    audio_clips_dir.mkdir(parents=True, exist_ok=True)
+    
+    individual_audio_paths = []
+    slide_durations = []
+    
+    for index, quote in enumerate(slide_quotes, start=1):
+        clip_path = audio_clips_dir / f"slide_{index}_voice.wav"
+        clean_text = quote.strip() + "."
+        
+        # Call Piper TTS locally with LibriTTS high model, speaker 14, and slowed cadence (1.2)
+        cmd = [
+            "piper",
+            "--model", "en_US-libritts-high",
+            "--speaker", "14",
+            "--length-scale", "1.2",
+            "--output_file", str(clip_path)
+        ]
+        
+        subprocess.run(
+            cmd,
+            input=clean_text,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True
+        )
+        
+        individual_audio_paths.append(str(clip_path))
+        dur = get_audio_duration(str(clip_path))
+        slide_durations.append(dur)
+
+    concat_txt_path = audio_clips_dir / "audio_concat.txt"
+    with open(concat_txt_path, "w") as f:
+        for clip in individual_audio_paths:
+            f.write(f"file '{Path(clip).name}'\n")
+
+    final_voiceover_path = output_dir / "voiceover.wav"
+    
+    subprocess.run([
+        "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", "audio_concat.txt",
+        "-c", "copy", str(final_voiceover_path)
+    ], cwd=audio_clips_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+
+    logger.info(f"[VOICEOVER] Piper TTS synchronized slide durations: {slide_durations}")
+    return str(final_voiceover_path), slide_durations
+    
 def add_background_music_and_voiceover(
     video_path: str,
     voiceover_path: str,
@@ -525,7 +580,7 @@ MUSIC: <song title - artist | genre/mood>
     else:
         logger.info("[CAROUSEL GENERATION] Merging voiceover track into base video (no background music path provided)...")
         result = subprocess.run([
-            "ffmpeg", "-y", "-i", "base_reel.mp4", "-i", "voiceover.mp3",
+            "ffmpeg", "-y", "-i", "base_reel.mp4", "-i", "voiceover.wav",
             "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac",
             "-pix_fmt", "yuv420p", "final_reel_with_audio.mp4"
         ], cwd=output_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
