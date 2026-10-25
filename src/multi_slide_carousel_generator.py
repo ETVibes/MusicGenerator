@@ -35,6 +35,7 @@ logger = logging.getLogger("CarouselGenerator")
 TEXT_MODEL = VOICEOVER_MODEL = "gemini-3.6-flash"
 IMAGE_MODEL = "gemini-2.5-flash-image"
 DEFAULT_SLIDE_DURATION_IN_SEC = 5.0
+CALL_TO_ACTION_TEXT = "Share this reel with the person you love!"
 
 def get_slide_role(index: int, total: int) -> tuple[str, str]:
     """Return the narrative role and role guidance for a slide at a given position."""
@@ -497,14 +498,25 @@ MUSIC: <song title - artist | genre/mood>
     generated_image_prompts = []
     first_slide_image = None
 
+    # Ensure slide_quotes includes the CTA text for the final slide's audio/duration tracking
+    processed_slide_quotes = list(slide_quotes)
+    if processed_slide_quotes:
+        processed_slide_quotes[-1] = f"{processed_slide_quotes[-1]}\n\n{CALL_TOKEN_OR_TEXT if 'CALL_TOKEN_OR_TEXT' in locals() else CALL_TO_ACTION_TEXT}"
+        
     # 3. Render each planned slide, using the first slide as a stable visual reference.
     for idx, slide_text in enumerate(slide_quotes, start=1):
         logger.info(f"[CAROUSEL GENERATION] Rendering slide {idx} of {num_slides}...")
         slide_plan = visual_plan[idx - 1]
+        
+        # Combine original text with CTA for the last slide if desired,
+        # or pass them separately if your draw function supports it
+        is_last_slide = (idx == num_slides)
+        current_slide_text = f"{slide_text}\n\n{CALL_TO_ACTION_TEXT}" if is_last_slide else slide_text
+            
         image_prompt = _build_slide_prompt(
             slide_index=idx,
             total_slides=num_slides,
-            slide_text=slide_text,
+            slide_text=current_slide_text,
             visual_plan=slide_plan,
             sequence_arc=sequence_arc,
             shared_style_block=shared_style_block,
@@ -542,7 +554,7 @@ MUSIC: <song title - artist | genre/mood>
 
                 draw_quote_on_image(
                     image_path=str(temp_path),
-                    quote=slide_text,
+                    quote=current_slide_text,
                     output_path=str(slide_path_jpg),
                     font_path=str(FONTS_DIR / "Montserrat-SemiBold.ttf"),
                     font_size=52,
@@ -562,9 +574,8 @@ MUSIC: <song title - artist | genre/mood>
     logger.info("[CAROUSEL GENERATION] Preparing video assembly...")
     
     if with_voiceover:
-        voiceover_path, slide_durations = generate_voiceover(slide_quotes, output_dir=output_dir)
+        voiceover_path, slide_durations = generate_voiceover(processed_slide_quotes, output_dir=output_dir)
     else:
-        logger.info("[CAROUSEL GENERATION] Voiceover disabled. Using fixed 5.0-second display duration per slide.")
         slide_durations = [DEFAULT_SLIDE_DURATION_IN_SEC] * len(slide_quotes)
     
     base_video_path = str(output_dir / "base_reel.mp4")
