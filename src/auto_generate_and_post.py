@@ -123,7 +123,7 @@ def compile_images_to_reel(image_paths: list[str], duration_per_slide: float = 6
     Raises:
         SystemExit: Exits script with code 1 if content generation or Buffer publishing fails.
 ==============================================================================="""
-def run_auto_publish(theme: str = None, mode: str = "single", post_type: str = "post", num_slides: int = 4):
+def run_auto_publish(theme: str = None, mode: str = "single", post_type: str = "post", num_slides: int = 4, with_voiceover: bool = True):
 
     # 0. Mode Selection (Randomize if not explicitly passed or if 'random' is requested)
     if not mode or mode.lower() == "random":
@@ -144,7 +144,7 @@ def run_auto_publish(theme: str = None, mode: str = "single", post_type: str = "
         if mode == "carousel":
             # Generate multi-slide images and narrative text payload
             reel_path, slide_quotes, explanation, hashtags, music_recommendation, image_prompts = (
-                generate_multi_slide_carousel(theme=theme, num_slides=num_slides)
+                generate_multi_slide_carousel(theme=theme, num_slides=num_slides, with_voiceover=with_voiceover)
             )
             headline = " | ".join(slide_quotes)
             
@@ -243,6 +243,13 @@ if __name__ == "__main__":
         default=4,
         help="Number of slides for carousel mode",
     )
+    
+    parser.add_argument(
+        "--voiceover",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Include voiceover audio in generated reels (use --no-voiceover to disable)",
+    )
 
     args = parser.parse_args()
-    run_auto_publish(theme=args.theme, mode=args.mode, post_type=args.type, num_slides=args.slides)
+    run_auto_publish(theme=args.theme, mode=args.mode, post_type=args.type, num_slides=args.slides, with_voiceover=args.voiceover)

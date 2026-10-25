@@ -34,6 +34,7 @@ logger = logging.getLogger("CarouselGenerator")
 
 TEXT_MODEL = VOICEOVER_MODEL = "gemini-3.6-flash"
 IMAGE_MODEL = "gemini-2.5-flash-image"
+DEFAULT_SLIDE_DURATION_IN_SEC = 5.0
 
 def get_slide_role(index: int, total: int) -> tuple[str, str]:
     """Return the narrative role and role guidance for a slide at a given position."""
@@ -405,7 +406,7 @@ def add_background_music_and_voiceover(
     return str(output_file)
     
 def generate_multi_slide_carousel(
-    theme: str = None, num_slides: int = 4, background_music_path: str = None
+    theme: str = None, num_slides: int = 4, background_music_path: str = None, with_voiceover: bool = True
 ) -> tuple[str, list[str], str, str, str, list[str]]:
     """Generate carousel text and images with a shared style and content-aware storyboard."""
     if not isinstance(num_slides, int) or num_slides < 1:
@@ -558,8 +559,13 @@ MUSIC: <song title - artist | genre/mood>
             raise RuntimeError(f"Failed to generate slide {idx} for carousel.")
 
     # 4. Generate Voiceover & Compile into Reel with Background Audio
-    logger.info("[CAROUSEL GENERATION] Starting audio generation and video compilation...")
-    voiceover_path, slide_durations = generate_voiceover(slide_quotes, output_dir=output_dir)
+    logger.info("[CAROUSEL GENERATION] Preparing video assembly...")
+    
+    if with_voiceover:
+        voiceover_path, slide_durations = generate_voiceover(slide_quotes, output_dir=output_dir)
+    else:
+        logger.info("[CAROUSEL GENERATION] Voiceover disabled. Using fixed 5.0-second display duration per slide.")
+        slide_durations = [DEFAULT_SLIDE_DURATION_IN_SEC] * len(slide_quotes)
     
     base_video_path = str(output_dir / "base_reel.mp4")
     image_list_txt = output_dir / "images.txt"
@@ -582,26 +588,39 @@ MUSIC: <song title - artist | genre/mood>
 
     final_reel_path = str(output_dir / "final_reel_with_audio.mp4")
     
-    if background_music_path and Path(background_music_path).exists():
-        logger.info(f"[CAROUSEL GENERATION] Adding background music from {background_music_path}...")
-        add_background_music_and_voiceover(
-            video_path=base_video_path,
-            voiceover_path=voiceover_path,
-            music_path=background_music_path,
-            output_path=final_reel_path
-        )
+    if with_voiceover:
+        if background_music_path and Path(background_music_path).exists():
+            logger.info(f"[CAROUSEL GENERATION] Adding background music from {background_music_path}...")
+            add_background_music_and_voiceover(
+                video_path=base_video_path,
+                voiceover_path=voiceover_path,
+                music_path=background_music_path,
+                output_path=final_reel_path
+            )
+        else:
+            logger.info("[CAROUSEL GENERATION] Merging voiceover track into base video (no background music path provided)...")
+            result = subprocess.run([
+                "ffmpeg", "-y", "-i", "base_reel.mp4", "-i", "voiceover.wav",
+                "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac",
+                "-pix_fmt", "yuv420p", "final_reel_with_audio.mp4"
+            ], cwd=output_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            
+            if result.returncode != 0:
+                print(f"❌ FFmpeg stderr: {result.stderr}")
+                raise RuntimeError(f"FFmpeg failed with code {result.returncode}")
     else:
-        logger.info("[CAROUSEL GENERATION] Merging voiceover track into base video (no background music path provided)...")
-        result = subprocess.run([
-            "ffmpeg", "-y", "-i", "base_reel.mp4", "-i", "voiceover.wav",
-            "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac",
-            "-pix_fmt", "yuv420p", "final_reel_with_audio.mp4"
-        ], cwd=output_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        
-        if result.returncode != 0:
-            print(f"❌ FFmpeg stderr: {result.stderr}")
-            raise RuntimeError(f"FFmpeg failed with code {result.returncode}")
-
+        if background_music_path and Path(background_music_path).exists():
+            logger.info(f"[CAROUSEL GENERATION] Adding background music only (no voiceover) from {background_music_path}...")
+            add_background_music_only(
+                video_path=base_video_path,
+                music_path=background_music_path,
+                output_path=final_reel_path
+            )
+        else:
+            logger.info("[CAROUSEL GENERATION] Voiceover disabled and no music provided. Exporting silent video base reel...")
+            import shutil
+            shutil.copy(base_video_path, final_reel_path)
+            
     if not Path(final_reel_path).exists():
         logger.error(f"❌ [CAROUSEL ERROR] Final reel file was not created at expected path: {final_reel_path}")
         raise RuntimeError(f"Final reel file was not created at: {final_reel_path}")
