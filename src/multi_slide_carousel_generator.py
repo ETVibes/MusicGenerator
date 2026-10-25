@@ -299,8 +299,8 @@ def generate_voiceover(
     output_dir: Path
 ) -> tuple[str, list[float]]:
     """
-    Generates individual audio clips for each slide using Piper TTS with LibriTTS high-quality
-    model (Speaker 14), slows the cadence down using --length-scale, and merges them into a final track.
+    Generates individual audio clips for each slide using Piper TTS with a slower 
+    cadence (--length-scale 1.4) and inserts a 1-second silent break between slides.
     """
     audio_clips_dir = output_dir / "individual_audio_clips"
     audio_clips_dir.mkdir(parents=True, exist_ok=True)
@@ -308,16 +308,23 @@ def generate_voiceover(
     individual_audio_paths = []
     slide_durations = []
     
+    # 1. Create a 1-second silent audio file to use as a pause between slides
+    silence_path = audio_clips_dir / "silence_1s.wav"
+    subprocess.run([
+        "ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=22050:cl=mono", 
+        "-t", "1.0", str(silence_path)
+    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+
     for index, quote in enumerate(slide_quotes, start=1):
         clip_path = audio_clips_dir / f"slide_{index}_voice.wav"
         clean_text = quote.strip() + "."
         
-        # Call Piper TTS locally with LibriTTS high model, speaker 14, and slowed cadence (1.2)
+        # Increased --length-scale to 1.4 for a much slower, relaxed narrative pace
         cmd = [
             "piper",
             "--model", "en_US-libritts-high",
             "--speaker", "14",
-            "--length-scale", "1.2",
+            "--length-scale", "1.4",
             "--output_file", str(clip_path)
         ]
         
@@ -332,7 +339,13 @@ def generate_voiceover(
         
         individual_audio_paths.append(str(clip_path))
         dur = get_audio_duration(str(clip_path))
-        slide_durations.append(dur)
+        
+        # If this is not the last slide, append the 1-second silence and add its duration
+        if index < len(slide_quotes):
+            individual_audio_paths.append(str(silence_path))
+            slide_durations.append(dur + 1.0)
+        else:
+            slide_durations.append(dur)
 
     concat_txt_path = audio_clips_dir / "audio_concat.txt"
     with open(concat_txt_path, "w") as f:
@@ -346,7 +359,7 @@ def generate_voiceover(
         "-c", "copy", str(final_voiceover_path)
     ], cwd=audio_clips_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
 
-    logger.info(f"[VOICEOVER] Piper TTS synchronized slide durations: {slide_durations}")
+    logger.info(f"[VOICEOVER] Piper TTS synchronized slide durations with 1s pauses: {slide_durations}")
     return str(final_voiceover_path), slide_durations
     
 def add_background_music_and_voiceover(
