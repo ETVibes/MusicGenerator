@@ -402,12 +402,8 @@ def add_background_music_and_voiceover(
             "ffmpeg", "-y",
             "-i", video_path,
             "-i", voiceover_path,
-            "-filter_complex",
-            f"[0:a]volume={music_volume}[bg];"
-            f"[1:a]volume={voiceover_volume}[vo];"
-            f"[vo][bg]amix=inputs=2:duration=first:dropout_transition=2[a:mix]",
             "-map", "0:v:0",
-            "-map", "[a:mix]",
+            "-map", "1:a:0",
             "-c:v", "copy",
             "-c:a", "aac",
             "-b:a", "192k",
@@ -415,17 +411,13 @@ def add_background_music_and_voiceover(
             str(output_file)
         ]
     else:
-        logger.info(f"[FFMPEG MIX] No voiceover provided. Exporting video with background audio at volume {music_volume} for theme '{active_theme}'...")
+        logger.info(f"[FFMPEG MIX] No voiceover provided. Exporting silent base video for theme '{active_theme}'...")
         cmd = [
             "ffmpeg", "-y",
             "-i", video_path,
-            "-filter_complex",
-            f"[0:a]volume={music_volume}[a:mix]",
             "-map", "0:v:0",
-            "-map", "[a:mix]",
+            "-an",
             "-c:v", "copy",
-            "-c:a", "aac",
-            "-b:a", "192k",
             "-pix_fmt", "yuv420p",
             str(output_file)
         ]
