@@ -47,7 +47,7 @@ Returns:
     dict: A dictionary containing 'title', 'singer', and the resolved 'audio_id'.
 ==============================================================================="""
 def resolve_and_fetch_audio(active_theme: str) -> dict:
-    """Loads songs from assets/background_music/audio_list.json, selects a random track, and fetches its audio_id."""
+    """Loads songs from assets/background_music/audio_list.json, selects a random track, and fetches its audio_id with fallback query cleaning."""
     json_path = os.path.join("assets", "background_music", "audio_list.json")
     
     with open(json_path, "r", encoding="utf-8") as f:
@@ -55,10 +55,7 @@ def resolve_and_fetch_audio(active_theme: str) -> dict:
         
     themes = data.get("themes", {})
     
-    # Normalize the theme name to match JSON keys (e.g., 'love and romance' -> 'love_romance')
     normalized_theme = active_theme.strip().lower().replace(" and ", "_").replace(" ", "_")
-    
-    # Fallback if theme doesn't match an exact key
     if normalized_theme not in themes:
         normalized_theme = "growth_courage"
         
@@ -70,28 +67,42 @@ def resolve_and_fetch_audio(active_theme: str) -> dict:
     
     print(f"[AUDIO] Selected '{title}' by {singer} for theme '{active_theme}'. Querying Instagram API...")
     
-    # Query Instagram API for runtime audio_id
     url = "https://graph.facebook.com/v26.0/ig_audio"
-    params = {
-        "audio_type": "music",
-        "search_query": f"{title} {singer}",
-        "user_id": INSTAGRAM_USER_ID,
-        "access_token": INSTAGRAM_ACCESS_TOKEN
-    }
+    
+    # Create a list of fallback search queries to try in order of specificity
+    import re
+    clean_title = re.sub(r"\(.*?\)", "", title).strip() # Removes text in parentheses like "(Remix)"
+    
+    search_queries = [
+        f"{title} {singer}",          # Attempt 1: Exact JSON match
+        f"{clean_title} {singer}",    # Attempt 2: Cleaned title + singer
+        title,                        # Attempt 3: Title only
+        singer                        # Attempt 4: Singer only (last resort)
+    ]
     
     audio_id = None
-    try:
-        response = requests.get(url, params=params)
-        res_data = response.json()
-        audio_list = res_data.get("audio", [])
-        
-        if audio_list:
-            audio_id = audio_list[0].get("audio_id")
-            print(f"[AUDIO] Successfully resolved audio_id: {audio_id}")
-        else:
-            print(f"[AUDIO WARNING] No matching audio found on Instagram for '{title} - {singer}'.")
-    except Exception as e:
-        print(f"[AUDIO ERROR] Request failed: {e}")
+    for query in search_queries:
+        params = {
+            "audio_type": "music",
+            "search_query": query,
+            "user_id": INSTAGRAM_USER_ID,
+            "access_token": INSTAGRAM_ACCESS_TOKEN
+        }
+        try:
+            print(f"[AUDIO] Trying API query: '{query}'")
+            response = requests.get(url, params=params)
+            res_data = response.json()
+            audio_list = res_data.get("audio", [])
+            
+            if audio_list:
+                audio_id = audio_list[0].get("audio_id")
+                print(f"[AUDIO] Successfully resolved audio_id using query '{query}': {audio_id}")
+                break
+        except Exception as e:
+            print(f"[AUDIO ERROR] Query failed for '{query}': {e}")
+            
+    if not audio_id:
+        print(f"[AUDIO WARNING] Could not resolve audio ID via API for '{title} - {singer}', even after fallbacks. Post will continue without pre-attached audio.")
         
     return {
         "title": title,
