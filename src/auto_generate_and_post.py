@@ -19,8 +19,6 @@ import requests
 
 # Load environment variables
 load_dotenv()
-INSTAGRAM_USER_ID = os.getenv("INSTAGRAM_USER_ID")
-INSTAGRAM_ACCESS_TOKEN = os.getenv("INSTAGRAM_ACCESS_TOKEN")
 
 # Import generation and publishing functions
 try:
