@@ -8,6 +8,8 @@ Description: Automated publishing bridge for Instagram posts. Handles discoverin
 import glob
 import logging
 import os
+import random
+import json
 from pathlib import Path
 from .config import SINGLE_IMAGE_DIR, CAROUSEL_CURRENT_DIR, REEL_DIR
 import time
