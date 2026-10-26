@@ -382,9 +382,9 @@ def generate_voiceover(
 ==============================================================================="""    
 def add_background_music_and_voiceover(
     video_path: str,
-    voiceover_path: str = None,
     active_theme: str,
     output_path: str,
+    voiceover_path: str = None,
     voiceover_volume: float = 1.0,
     music_volume: float = 0.15,
 ) -> str:
@@ -415,7 +415,7 @@ def add_background_music_and_voiceover(
             str(output_file)
         ]
     else:
-        logger.info(f"[FFMPEG MIX] No voiceover provided. Exporting video with background audio at volume {music_volume} (Instagram audio_id: {audio_id})...")
+        logger.info(f"[FFMPEG MIX] No voiceover provided. Exporting video with background audio at volume {music_volume} for theme '{active_theme}'...")
         cmd = [
             "ffmpeg", "-y",
             "-i", video_path,
@@ -635,15 +635,14 @@ MUSIC: <song title - artist | genre/mood>
         logger.info("[CAROUSEL GENERATION] Processing reel with voiceover and theme audio reference...")
         add_background_music_and_voiceover(
             video_path=base_video_path,
-            voiceover_path=voiceover_path,
             active_theme=active_theme,
-            output_path=final_reel_path
+            output_path=final_reel_path,
+            voiceover_path=voiceover_path
         )
     else:
         logger.info("[CAROUSEL GENERATION] Processing reel with theme audio reference (no voiceover)...")
         add_background_music_and_voiceover(
             video_path=base_video_path,
-            voiceover_path=None,
             active_theme=active_theme,
             output_path=final_reel_path
         )
