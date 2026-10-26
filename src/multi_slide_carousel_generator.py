@@ -363,15 +363,32 @@ def generate_voiceover(
 
     logger.info(f"[VOICEOVER] Piper TTS synchronized slide durations with 1s pauses: {slide_durations}")
     return str(final_voiceover_path), slide_durations
-    
+
+"""===============================================================================
+    Resolves an Instagram audio ID based on the theme, and mixes both the voiceover 
+    and background track into the video using the specified volume levels, allowing 
+    voiceover_path to be optional (null).
+
+    Args:
+        video_path (str): Path to the compiled base video file.
+        active_theme (str): The theme name used to resolve background music.
+        output_path (str): Path where the final mixed video will be saved.
+        voiceover_path (str, optional): Path to the generated voiceover audio file. Defaults to None.
+        voiceover_volume (float, optional): Volume multiplier for the voiceover. Defaults to 1.0.
+        music_volume (float, optional): Volume multiplier for the background audio track. Defaults to 0.15.
+
+    Returns:
+        str: Absolute file path string of the final mixed video.
+==============================================================================="""    
 def add_background_music_and_voiceover(
     video_path: str,
-    voiceover_path: str,
-    music_path: str,
+    voiceover_path: str = None,
+    active_theme: str,
     output_path: str,
     voiceover_volume: float = 1.0,
     music_volume: float = 0.15,
 ) -> str:
+    
     """
     Mixes a text-to-speech voiceover track and a background music track directly into 
     the final video using FFmpeg, applying audio ducking so the voice remains prominent.
@@ -379,24 +396,39 @@ def add_background_music_and_voiceover(
     output_file = Path(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
-    logger.info(f"[FFMPEG MIX] Mixing voiceover ({voiceover_path}) and music ({music_path}) into video ({video_path})...")
-    cmd = [
-        "ffmpeg", "-y",
-        "-i", video_path,
-        "-i", voiceover_path,
-        "-i", music_path,
-        "-filter_complex",
-        f"[1:a]volume={voiceover_volume}[vo];"
-        f"[2:a]volume={music_volume}[bg];"
-        f"[vo][bg]amix=inputs=2:duration=first:dropout_transition=2[a:mix]",
-        "-map", "0:v:0",
-        "-map", "[a:mix]",
-        "-c:v", "copy",
-        "-c:a", "aac",
-        "-b:a", "192k",
-        "-pix_fmt", "yuv420p",
-        str(output_file)
-    ]
+    if voiceover_path and Path(voiceover_path).exists():
+        logger.info(f"[FFMPEG MIX] Mixing voiceover ({voiceover_path}) and video ({video_path})...")
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", video_path,
+            "-i", voiceover_path,
+            "-filter_complex",
+            f"[0:a]volume={music_volume}[bg];"
+            f"[1:a]volume={voiceover_volume}[vo];"
+            f"[vo][bg]amix=inputs=2:duration=first:dropout_transition=2[a:mix]",
+            "-map", "0:v:0",
+            "-map", "[a:mix]",
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-b:a", "192k",
+            "-pix_fmt", "yuv420p",
+            str(output_file)
+        ]
+    else:
+        logger.info(f"[FFMPEG MIX] No voiceover provided. Exporting video with background audio at volume {music_volume} (Instagram audio_id: {audio_id})...")
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", video_path,
+            "-filter_complex",
+            f"[0:a]volume={music_volume}[a:mix]",
+            "-map", "0:v:0",
+            "-map", "[a:mix]",
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-b:a", "192k",
+            "-pix_fmt", "yuv420p",
+            str(output_file)
+        ]
 
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if result.returncode != 0:
@@ -407,7 +439,7 @@ def add_background_music_and_voiceover(
     return str(output_file)
     
 def generate_multi_slide_carousel(
-    theme: str = None, num_slides: int = 4, background_music_path: str = None, with_voiceover: bool = True
+    theme: str = None, num_slides: int = 4, with_voiceover: bool = True
 ) -> tuple[str, list[str], str, str, str, list[str]]:
     """Generate carousel text and images with a shared style and content-aware storyboard."""
     if not isinstance(num_slides, int) or num_slides < 1:
@@ -501,7 +533,7 @@ MUSIC: <song title - artist | genre/mood>
     # Ensure slide_quotes includes the CTA text for the final slide's audio/duration tracking
     processed_slide_quotes = list(slide_quotes)
     if processed_slide_quotes:
-        processed_slide_quotes[-1] = f"{processed_slide_quotes[-1]}\n\n{CALL_TOKEN_OR_TEXT if 'CALL_TOKEN_OR_TEXT' in locals() else CALL_TO_ACTION_TEXT}"
+        processed_slide_quotes[-1] = f"{processed_slide_quotes[-1]}\n\n{CALL_TO_ACTION_TEXT}"
         
     # 3. Render each planned slide, using the first slide as a stable visual reference.
     for idx, slide_text in enumerate(slide_quotes, start=1):
@@ -600,38 +632,22 @@ MUSIC: <song title - artist | genre/mood>
     final_reel_path = str(output_dir / "final_reel_with_audio.mp4")
     
     if with_voiceover:
-        if background_music_path and Path(background_music_path).exists():
-            logger.info(f"[CAROUSEL GENERATION] Adding background music from {background_music_path}...")
-            add_background_music_and_voiceover(
-                video_path=base_video_path,
-                voiceover_path=voiceover_path,
-                music_path=background_music_path,
-                output_path=final_reel_path
-            )
-        else:
-            logger.info("[CAROUSEL GENERATION] Merging voiceover track into base video (no background music path provided)...")
-            result = subprocess.run([
-                "ffmpeg", "-y", "-i", "base_reel.mp4", "-i", "voiceover.wav",
-                "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac",
-                "-pix_fmt", "yuv420p", "final_reel_with_audio.mp4"
-            ], cwd=output_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            
-            if result.returncode != 0:
-                print(f"❌ FFmpeg stderr: {result.stderr}")
-                raise RuntimeError(f"FFmpeg failed with code {result.returncode}")
+        logger.info("[CAROUSEL GENERATION] Processing reel with voiceover and theme audio reference...")
+        add_background_music_and_voiceover(
+            video_path=base_video_path,
+            voiceover_path=voiceover_path,
+            active_theme=active_theme,
+            output_path=final_reel_path
+        )
     else:
-        if background_music_path and Path(background_music_path).exists():
-            logger.info(f"[CAROUSEL GENERATION] Adding background music only (no voiceover) from {background_music_path}...")
-            add_background_music_only(
-                video_path=base_video_path,
-                music_path=background_music_path,
-                output_path=final_reel_path
-            )
-        else:
-            logger.info("[CAROUSEL GENERATION] Voiceover disabled and no music provided. Exporting silent video base reel...")
-            import shutil
-            shutil.copy(base_video_path, final_reel_path)
-            
+        logger.info("[CAROUSEL GENERATION] Processing reel with theme audio reference (no voiceover)...")
+        add_background_music_and_voiceover(
+            video_path=base_video_path,
+            voiceover_path=None,
+            active_theme=active_theme,
+            output_path=final_reel_path
+        )
+        
     if not Path(final_reel_path).exists():
         logger.error(f"❌ [CAROUSEL ERROR] Final reel file was not created at expected path: {final_reel_path}")
         raise RuntimeError(f"Final reel file was not created at: {final_reel_path}")

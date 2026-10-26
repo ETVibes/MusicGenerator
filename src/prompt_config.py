@@ -62,10 +62,6 @@ THEME_PRESETS = {
         "style": "cinematic 35mm documentary film photography, rich organic textures, moody depth of field, striking contrast, powerful and inspiring",
         "modifier": "dramatic directional sunlight cutting through shadows with an empowering, cinematic warmth",
     },
-    "courage and finding your purpose": {
-        "style": "cinematic 35mm documentary film photography, rich organic textures, moody depth of field, striking contrast, powerful and inspiring",
-        "modifier": "dramatic directional sunlight cutting through shadows with an empowering, cinematic warmth",
-    },
     "gratitude and appreciating small moments": {
         "style": "cozy aesthetic lifestyle photography, tactile textures, warm beige and soft terracotta tones, candid and deeply nostalgic",
         "modifier": "soft indoor golden hour light filtering through sheer curtains, creating a quiet and cherished mood",

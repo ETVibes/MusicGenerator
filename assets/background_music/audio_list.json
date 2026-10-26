@@ -1,0 +1,84 @@
+{
+  "themes": {
+    "love_romance": [
+      {
+        "title": "Ho Hey",
+        "singer": "The Lumineers"
+      },
+      {
+        "title": "Until I Found You",
+        "singer": "Stephen Sanchez"
+      },
+      {
+        "title": "A thousand years",
+        "singer": "Christiana Perri"
+      },
+      {
+        "title": "Yellow",
+        "singer": "Coldplay"
+      },
+      {
+        "title": "I will see you again",
+        "singer": "Charlie Puth"
+      },
+      {
+        "title": "Lover",
+        "singer": "Taylor Swift"
+      },
+      {
+        "title": "Love Me Like You Do",
+        "singer": "Ellie Goulding"
+      },
+      {
+        "title": "Stay by my Side",
+        "singer": "Luis Javaro"
+      }
+    ],
+    "growth_courage": [
+      {
+        "title": "The climb",
+        "singer": "Miley Cyrus"
+      },
+      {
+        "title": "ICARUS",
+        "singer": "Tony Ann"
+      },
+      {
+        "title": "Rewrite the Stars",
+        "singer": "Jack of all collective"
+      },
+      {
+        "title": "Unstoppable",
+        "singer": "Sia"
+      },
+      {
+        "title": "Fix you",
+        "singer": "Coldplay"
+      },
+      {
+        "title": "Midnight City",
+        "singer": "M83"
+      },
+      {
+        "title": "Counting My Blessings",
+        "singer": "Seph Schlueter"
+      },
+      {
+        "title": "The nights",
+        "singer": "Avicii"
+      },
+      {
+        "title": "self aware (slow version)",
+        "singer": "Orchestra club"
+      },
+      {
+        "title": "Caribbean blue",
+        "singer": "Enya"
+      },
+      {
+        "title": "Qutro",
+        "singer": "M83"
+      }
+    ]
+  }
+}

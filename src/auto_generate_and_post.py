@@ -14,9 +14,13 @@ from email.mime.text import MIMEText
 from pathlib import Path
 from moviepy import ImageClip, concatenate_videoclips
 import smtplib
+import json
+import requests
 
 # Load environment variables
 load_dotenv()
+INSTAGRAM_USER_ID = os.getenv("INSTAGRAM_USER_ID")
+INSTAGRAM_ACCESS_TOKEN = os.getenv("INSTAGRAM_ACCESS_TOKEN")
 
 # Import generation and publishing functions
 try:
@@ -77,7 +81,7 @@ Image Prompt(s):
     print(f"  └─ 📧 Notification email sent successfully to {receiver_email}!")
   except Exception as e:
     print(f"  └─ ❌ Failed to send email notification: {e}")
-
+    
 """===============================================================================
     Compiles a list of image file paths into a single MP4 video reel.
 
@@ -189,7 +193,7 @@ def run_auto_publish(theme: str = None, mode: str = "single", post_type: str = "
                 import shutil
                 shutil.copy(reel_path, target_reel)
                 
-            res = publish_latest_reel(caption)
+            res = publish_latest_reel(caption, theme)
         elif mode == "carousel" and "publish_carousel_post" in globals():
             # If posting as a carousel instead of a reel, you can pass the individual images directory/paths if needed
             # For now, ensure your image paths collection is handled correctly if posting a carousel format.

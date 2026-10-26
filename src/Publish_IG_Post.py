@@ -32,6 +32,70 @@ CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
 CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 
 """===============================================================================
+Loads background music options from assets/background_music/audio_list.json,
+selects a random track based on the active theme, and queries the Instagram
+Graph API to resolve its live audio_id.
+
+Args:
+    active_theme (str): The name of the active theme to select a song from.
+
+Returns:
+    dict: A dictionary containing 'title', 'singer', and the resolved 'audio_id'.
+==============================================================================="""
+def resolve_and_fetch_audio(active_theme: str) -> dict:
+    """Loads songs from assets/background_music/audio_list.json, selects a random track, and fetches its audio_id."""
+    json_path = os.path.join("assets", "background_music", "audio_list.json")
+    
+    with open(json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+        
+    themes = data.get("themes", {})
+    
+    # Normalize the theme name to match JSON keys (e.g., 'love and romance' -> 'love_romance')
+    normalized_theme = active_theme.strip().lower().replace(" and ", "_").replace(" ", "_")
+    
+    # Fallback if theme doesn't match an exact key
+    if normalized_theme not in themes:
+        normalized_theme = "growth_courage"
+        
+    song_pool = themes[normalized_theme]
+    selected_song = random.choice(song_pool)
+    
+    title = selected_song["title"]
+    singer = selected_song["singer"]
+    
+    print(f"[AUDIO] Selected '{title}' by {singer} for theme '{active_theme}'. Querying Instagram API...")
+    
+    # Query Instagram API for runtime audio_id
+    url = "https://graph.facebook.com/v26.0/ig_audio"
+    params = {
+        "audio_type": "music",
+        "search_query": f"{title} {singer}",
+        "user_id": INSTAGRAM_USER_ID,
+        "access_token": INSTAGRAM_ACCESS_TOKEN
+    }
+    
+    audio_id = None
+    try:
+        response = requests.get(url, params=params)
+        res_data = response.json()
+        audio_list = res_data.get("audio", [])
+        
+        if audio_list:
+            audio_id = audio_list[0].get("audio_id")
+            print(f"[AUDIO] Successfully resolved audio_id: {audio_id}")
+        else:
+            print(f"[AUDIO WARNING] No matching audio found on Instagram for '{title} - {singer}'.")
+    except Exception as e:
+        print(f"[AUDIO ERROR] Request failed: {e}")
+        
+    return {
+        "title": title,
+        "singer": singer,
+        "audio_id": audio_id
+    }
+    
+"""===============================================================================
     Finds the most recently modified image (.jpg, .jpeg, .png) in the specified directory.
 
     Args:
@@ -298,12 +362,13 @@ def post_image_to_buffer(image_urls: list[str], caption: str, music_recommendati
     Args:
         video_url (str): Public HTTPS video URL to attach to post.
         caption (str): Main post text caption.
+        theme (str) : The theme for the reel
         music_recommendation (str, optional): Suggested track to append to caption text.
 
     Returns:
         dict: Parsed JSON response dictionary returned by Buffer GraphQL endpoint.
 ==============================================================================="""
-def post_reel_to_buffer(video_url: str, caption: str, music_recommendation: str = None) -> dict:
+def post_reel_to_buffer(video_url: str, caption: str, theme: str, music_recommendation: str = None, audio_id: str = None) -> dict:
     """Sends hosted video asset URL and reel metadata payload to Buffer GraphQL API."""
     mutation = """
     mutation CreatePost($input: CreatePostInput!) {
@@ -332,6 +397,18 @@ def post_reel_to_buffer(video_url: str, caption: str, music_recommendation: str 
         "shouldShareToFeed": True
     }
 
+    """ Get the audio id from the random list of songs according to the theme"""
+    audio_info = resolve_and_fetch_audio(theme)
+    audio_id = audio_info.get("audio_id")
+    song_title = audio_info.get("title")
+    singer = audio_info.get("singer")
+
+    if not audio_id:
+        raise RuntimeError(f"Failed to resolve Instagram audio ID for theme '{theme}' ({song_title} - {singer}).")
+    else:
+        instagram_metadata["audio_id"] = audio_id
+        logger.info(f"[AUDIO MAPPING] Selected '{song_title}' by {singer} with Instagram audio_id: {audio_id}")  
+    
     variables = {
         "input": {
             "channelId": BUFFER_CHANNEL_ID,
@@ -420,12 +497,13 @@ def publish_carousel_post(image_paths: list[str] = None, caption: str = "", musi
 
     Args:
         caption (str): Caption text for the reel.
+        theme (str) : The theme for the reel
         music_recommendation (str, optional): Suggested track recommendation.
 
     Returns:
         dict: Buffer API response payload.
 ==============================================================================="""
-def publish_latest_reel(caption: str, music_recommendation: str = None):
+def publish_latest_reel(caption: str, theme: str, music_recommendation: str = None):
     """Workflow function to fetch local reel video, upload, and publish an Instagram Reel via Buffer."""
     logger.info("Starting publish workflow for Instagram Reel...")
     local_video_path = get_latest_reel_video(REEL_DIR)
@@ -433,7 +511,7 @@ def publish_latest_reel(caption: str, music_recommendation: str = None):
 
     wait_for_cloudinary_urls([public_video_url])
 
-    response = post_reel_to_buffer(public_video_url, caption, music_recommendation=music_recommendation)
+    response = post_reel_to_buffer(public_video_url, caption, theme, music_recommendation=music_recommendation)
     return response
     
 if __name__ == "__main__":
