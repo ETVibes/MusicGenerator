@@ -9,4 +9,4 @@ imageio[ffmpeg]
 gTTS>=2.5.0
 torch
 torchaudio
-coqui-tts
+coqui-tts[codec]
