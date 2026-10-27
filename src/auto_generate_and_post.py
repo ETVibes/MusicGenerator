@@ -16,6 +16,7 @@ from moviepy import ImageClip, concatenate_videoclips
 import smtplib
 import json
 import requests
+os.environ["COQUI_TOS_AGREED"] = "1"
 
 # Load environment variables
 load_dotenv()

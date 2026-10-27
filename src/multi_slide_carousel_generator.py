@@ -296,48 +296,66 @@ def generate_voiceover_old(
     logger.info(f"[VOICEOVER] Perfectly synchronized slide durations: {slide_durations}")
     return str(final_voiceover_path), slide_durations
 
+"""===============================================================================
+    Generates individual audio clips for each slide using zero-shot voice cloning
+    based on the reference asset 'assets/voice_reference_female.mp3', measures 
+    precise clip durations, and compiles them into a synchronized voiceover track.
+
+    Args:
+        slide_quotes (list[str]): List of text quotes for each carousel slide.
+        output_dir (Path): Directory path where audio clips and final voiceover will be saved.
+
+    Returns:
+        tuple[str, list[float]]: A tuple containing the absolute path to the generated 
+                                 voiceover file and a list of precise slide durations.
+==============================================================================="""
 def generate_voiceover(
     slide_quotes: list[str], 
     output_dir: Path
 ) -> tuple[str, list[float]]:
-    """
-    Generates individual audio clips for each slide using Piper TTS with a slower 
-    cadence (--length-scale 1.4) and inserts a 1-second silent break between slides.
-    """
+    import torch
+    from TTS.api import TTS
+    
     audio_clips_dir = output_dir / "individual_audio_clips"
     audio_clips_dir.mkdir(parents=True, exist_ok=True)
     
     individual_audio_paths = []
     slide_durations = []
     
-    # 1. Create a 1-second silent audio file to use as a pause between slides
+    # 1. Validate that the reference voice asset exists
+    reference_audio_path = Path("assets/voice_reference_female.mp3")
+    if not reference_audio_path.exists():
+        logger.error(f"❌ [VOICEOVER ERROR] Reference voice file missing at: {reference_audio_path}")
+        raise FileNotFoundError(f"Reference voice asset required at {reference_audio_path}")
+    
+    # 2. Create a 1-second silent audio file to use as a pause between slides
     silence_path = audio_clips_dir / "silence_1s.wav"
     subprocess.run([
         "ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=22050:cl=mono", 
         "-t", "1.0", str(silence_path)
     ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
 
+    # 3. Initialize Coqui XTTS v2 for zero-shot voice cloning locally
+    logger.info("[VOICEOVER] Loading XTTS v2 model for zero-shot voice cloning...")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
+
+    # 4. Generate cloned voice clip for each slide quote
     for index, quote in enumerate(slide_quotes, start=1):
         clip_path = audio_clips_dir / f"slide_{index}_voice.wav"
         clean_text = quote.strip() + "."
         
-        # Increased --length-scale to 1.4 for a much slower, relaxed narrative pace
-        cmd = [
-            "piper",
-            "--model", "en_US-libritts-high",
-            "--speaker", "14",
-            "--length-scale", "1.4",
-            "--output_file", str(clip_path)
-        ]
-        
-        subprocess.run(
-            cmd,
-            input=clean_text,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=True
-        )
+        try:
+            logger.info(f"[VOICEOVER] Cloning voice for slide {index}...")
+            tts.tts_to_file(
+                text=clean_text,
+                file_path=str(clip_path),
+                speaker_wav=str(reference_audio_path),
+                language="en"
+            )
+        except Exception as e:
+            logger.error(f"❌ [VOICEOVER ERROR] Failed to clone voice for slide {index}: {e}")
+            raise RuntimeError(f"Voice cloning failed on slide {index}: {e}")
         
         individual_audio_paths.append(str(clip_path))
         dur = get_audio_duration(str(clip_path))
@@ -349,6 +367,7 @@ def generate_voiceover(
         else:
             slide_durations.append(dur)
 
+    # 5. Concatenate all slide clips and silence breaks via FFmpeg
     concat_txt_path = audio_clips_dir / "audio_concat.txt"
     with open(concat_txt_path, "w") as f:
         for clip in individual_audio_paths:
@@ -361,7 +380,7 @@ def generate_voiceover(
         "-c", "copy", str(final_voiceover_path)
     ], cwd=audio_clips_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
 
-    logger.info(f"[VOICEOVER] Piper TTS synchronized slide durations with 1s pauses: {slide_durations}")
+    logger.info(f"[VOICEOVER] Zero-shot cloned voice synchronized slide durations: {slide_durations}")
     return str(final_voiceover_path), slide_durations
 
 """===============================================================================

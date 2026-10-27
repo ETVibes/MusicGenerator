@@ -17,23 +17,26 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install System Dependencies (FFmpeg)
+      - name: Cache PyTorch and Coqui Models
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/torch
+            ~/.cache/coqui
+          key: ${{ runner.os }}-coqui-xtts-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-coqui-xtts-
+
+      - name: Install System Dependencies (FFmpeg & Libsndfile)
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg libsndfile1
           
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install piper-tts
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Download Piper Voice Model
-        run: |
-          mkdir -p ~/.local/share/piper
-          curl -L -O https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/libritts/high/en_US-libritts-high.onnx
-          curl -L -O https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/libritts/high/en_US-libritts-high.onnx.json
-          
       - name: Run Auto Generate & Post Script
         run: |
           SLIDES="${{ github.event.inputs.slides || '4' }}"

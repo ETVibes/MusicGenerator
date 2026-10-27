@@ -418,11 +418,11 @@ def post_reel_to_buffer(video_url: str, caption: str, theme: str, music_recommen
     song_title = audio_info.get("title")
     singer = audio_info.get("singer")
 
-    if not audio_id:
-        raise RuntimeError(f"Failed to resolve Instagram audio ID for theme '{theme}' ({song_title} - {singer}).")
-    else:
+    if audio_id:
         instagram_metadata["audio_id"] = audio_id
         logger.info(f"[AUDIO MAPPING] Selected '{song_title}' by {singer} with Instagram audio_id: {audio_id}")  
+    else:
+        logger.info(f"[AUDIO MAPPING] Skipping audio_id assignment for '{song_title} - {singer}'; publishing reel without pre-attached audio.")
     
     variables = {
         "input": {
