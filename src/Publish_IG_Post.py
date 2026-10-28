@@ -510,11 +510,10 @@ def publish_carousel_post(image_paths: list[str] = None, caption: str = "", musi
     Returns:
         dict: Buffer API response payload.
 ==============================================================================="""
-def publish_latest_reel(caption: str, theme: str, music_recommendation: str = None):
+def publish_latest_reel(video_path: str, caption: str, theme: str, music_recommendation: str = None):
     """Workflow function to fetch local reel video, upload, and publish an Instagram Reel via Buffer."""
     logger.info("Starting publish workflow for Instagram Reel...")
-    local_video_path = get_latest_reel_video(REEL_DIR)
-    public_video_url = upload_local_media_temp(local_video_path, resource_type="video")
+    public_video_url = upload_local_media_temp(video_path, resource_type="video")
 
     wait_for_cloudinary_urls([public_video_url])
 

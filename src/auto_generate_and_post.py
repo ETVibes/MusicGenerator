@@ -192,7 +192,7 @@ def run_auto_publish(theme: str = None, mode: str = "single", post_type: str = "
                 import shutil
                 shutil.copy(reel_path, target_reel)
                 
-            res = publish_latest_reel(caption, theme)
+            res = publish_latest_reel(str(reel_path), caption, theme)
         elif mode == "carousel" and "publish_carousel_post" in globals():
             # If posting as a carousel instead of a reel, you can pass the individual images directory/paths if needed
             # For now, ensure your image paths collection is handled correctly if posting a carousel format.
