@@ -451,7 +451,8 @@ def post_reel_to_buffer(video_url: str, caption: str, theme: str, music_recommen
     )
 
     logger.info(f"Buffer API HTTP Status Code: {response.status_code}")
-
+    logger.info(f"Buffer Raw Response Text: {response.text}")
+    
     try:
         response = requests.post(
             "https://api.buffer.com",
