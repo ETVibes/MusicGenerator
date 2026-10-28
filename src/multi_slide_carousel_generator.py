@@ -616,7 +616,7 @@ MUSIC: <song title - artist | genre/mood>
     # 4. Generate Voiceover & Compile into Reel with Background Audio
     logger.info("[CAROUSEL GENERATION] Preparing video assembly...")
     
-    if with_voiceover:
+    if with_voiceover: #Creates a wav file of the voice over
         voiceover_path, slide_durations = generate_voiceover(processed_slide_quotes, output_dir=output_dir)
     else:
         slide_durations = [DEFAULT_SLIDE_DURATION_IN_SEC] * len(slide_quotes)
@@ -642,7 +642,7 @@ MUSIC: <song title - artist | genre/mood>
 
     final_reel_path = str(output_dir / "final_reel_with_audio.mp4")
     
-    if with_voiceover:
+    if with_voiceover: #Bakes the wav file created above with a background music into the reel file
         logger.info("[CAROUSEL GENERATION] Processing reel with voiceover and theme audio reference...")
         add_background_music_and_voiceover(
             video_path=base_video_path,

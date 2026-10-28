@@ -438,11 +438,11 @@ def post_reel_to_buffer(video_url: str, caption: str, theme: str, music_recommen
         )
         
         logger.info(f"Buffer API HTTP Status Code: {response.status_code}")
-        logger.info(f"Buffer Raw Response Text: {response.text}")
-
-        # If Buffer returns a non-200 or an error page, raise it explicitly with text
-        if response.status_code != 200:
-            raise RuntimeError(f"Buffer API responded with status {response.status_code}: {response.text}")
+        
+        # Check if the response is valid JSON first
+        if not response.text.strip().startswith("{"):
+            logger.error(f"❌ [BUFFER NON-JSON ERROR]: {response.text[:500]}")
+            raise RuntimeError(f"Buffer API returned non-JSON response (Status {response.status_code}): {response.text[:200]}")
 
         res_json = response.json()
         logger.info(f"Buffer Raw API Response: {res_json}")
