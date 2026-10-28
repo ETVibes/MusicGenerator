@@ -444,34 +444,28 @@ def post_reel_to_buffer(video_url: str, caption: str, theme: str, music_recommen
 
     logger.info(f"Sending Reel GraphQL payload to Buffer for Channel ID: {BUFFER_CHANNEL_ID}")
 
-    response = requests.post(
-        "https://api.buffer.com",
-        headers=headers,
-        json={"query": mutation, "variables": variables}
-    )
-
-    logger.info(f"Buffer API HTTP Status Code: {response.status_code}")
-    logger.info(f"Buffer Raw Response Text: {response.text}")
-    
     try:
         response = requests.post(
             "https://api.buffer.com",
             headers=headers,
             json={"query": mutation, "variables": variables}
         )
+        
         logger.info(f"Buffer API HTTP Status Code: {response.status_code}")
+        logger.info(f"Buffer Raw Response Text: {response.text}")
 
         # Check if the response is actually JSON before parsing
         if not response.text.strip().startswith("{"):
-            logger.error(f"Buffer returned non-JSON response: {response.text[:200]}")
+            logger.error(f"❌ [BUFFER NON-JSON ERROR]: {response.text[:500]}")
             raise ValueError(f"Buffer API returned an invalid response format (Status {response.status_code})")
             
         res_json = response.json()
         logger.info(f"Buffer Raw API Response: {res_json}")
         return res_json
+        
     except Exception as e:
         resp_text = response.text if 'response' in locals() and hasattr(response, 'text') else "No response text available"
-        logger.error(f"Failed to process Buffer request. Response text: {resp_text}")
+        logger.error(f"❌ [PUBLISH EXCEPTION] Failed to process Buffer request. Response text: {resp_text}")
         raise e
         
 """===============================================================================
