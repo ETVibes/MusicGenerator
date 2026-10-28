@@ -15,6 +15,7 @@ from .config import SINGLE_IMAGE_DIR, CAROUSEL_CURRENT_DIR, REEL_DIR
 import time
 import requests
 from dotenv import load_dotenv
+import re
 
 # Configure logging format
 logging.basicConfig(
@@ -50,9 +51,12 @@ def resolve_and_fetch_audio(active_theme: str) -> dict:
     """Loads songs from assets/background_music/audio_list.json, selects a random track, and fetches its audio_id with fallback query cleaning."""
     json_path = os.path.join("assets", "background_music", "audio_list.json")
     
-    with open(json_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-        
+    try:
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+            print(f"[AUDIO ERROR] Failed to load data from file - '{json_path}'. Error: {e}")
+            
     themes = data.get("themes", {})
     
     normalized_theme = active_theme.strip().lower().replace(" and ", "_").replace(" ", "_")
@@ -65,12 +69,11 @@ def resolve_and_fetch_audio(active_theme: str) -> dict:
     title = selected_song["title"]
     singer = selected_song["singer"]
     
-    print(f"[AUDIO] Selected '{title}' by {singer} for theme '{active_theme}'. Querying Instagram API...")
+    logger.info(f"[AUDIO] Selected '{title}' by {singer} for theme '{active_theme}'. Querying Instagram API...")
     
     url = "https://graph.facebook.com/v26.0/ig_audio"
     
     # Create a list of fallback search queries to try in order of specificity
-    import re
     clean_title = re.sub(r"\(.*?\)", "", title).strip() # Removes text in parentheses like "(Remix)"
     
     search_queries = [
@@ -89,20 +92,28 @@ def resolve_and_fetch_audio(active_theme: str) -> dict:
             "access_token": INSTAGRAM_ACCESS_TOKEN
         }
         try:
-            print(f"[AUDIO] Trying API query: '{query}'")
+            logger.info(f"[AUDIO] Trying API query: '{query}'")
             response = requests.get(url, params=params)
+            
+            # 1. Check if the response was successful
+            logger.info(f"[AUDIO API] Status Code: {response.status_code}")
+            
+            # 2. Try parsing JSON, and if it fails, log the raw text content
             res_data = response.json()
             audio_list = res_data.get("audio", [])
             
             if audio_list:
                 audio_id = audio_list[0].get("audio_id")
-                print(f"[AUDIO] Successfully resolved audio_id using query '{query}': {audio_id}")
+                logger.info(f"[AUDIO] Successfully resolved audio_id using query '{query}': {audio_id}")
                 break
+        except requests.exceptions.JSONDecodeError as jde:
+            logger.error(f"[AUDIO ERROR] Non-JSON response received from Instagram API for query '{query}': {jde}")
+            logger.error(f"[AUDIO ERROR] Raw response text was: {response.text[:500]}")
         except Exception as e:
-            print(f"[AUDIO ERROR] Query failed for '{query}': {e}")
+            logger.error(f"[AUDIO ERROR] Query failed for '{query}': {e}")
             
     if not audio_id:
-        print(f"[AUDIO WARNING] Could not resolve audio ID via API for '{title} - {singer}', even after fallbacks. Post will continue without pre-attached audio.")
+        logger.info(f"[AUDIO WARNING] Could not resolve audio ID via API for '{title} - {singer}', even after fallbacks. Post will continue without pre-attached audio.")
         
     return {
         "title": title,
@@ -406,7 +417,7 @@ def post_reel_to_buffer(video_url: str, caption: str, theme: str, music_recommen
 
     if audio_id:
         instagram_metadata["audio_id"] = audio_id
-        logger.info(f"[AUDIO MAPPING] Selected '{song_title}' by {singer} with Instagram audio_id: {audio_id}")  
+        logger.info(f"[AUDIO MAPPING] Selected '{song_title}' by {singer} with Instagram audio_id: {audio_id}")
     else:
         logger.info(f"[AUDIO MAPPING] Skipping audio_id assignment for '{song_title} - {singer}'; publishing reel without pre-attached audio.")
     
