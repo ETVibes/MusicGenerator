@@ -331,7 +331,7 @@ def generate_voiceover(
     # 2. Create a 1-second silent audio file to use as a pause between slides
     silence_path = audio_clips_dir / "silence_1s.wav"
     subprocess.run([
-        "ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=22050:cl=mono", 
+        "ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=24000:cl=mono", 
         "-t", "1.0", str(silence_path)
     ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
 
@@ -377,7 +377,7 @@ def generate_voiceover(
     
     subprocess.run([
         "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", "audio_concat.txt",
-        "-c", "copy", str(final_voiceover_path)
+        "-c:a", "aac", "-b:a", "192k", str(final_voiceover_path)
     ], cwd=audio_clips_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
 
     logger.info(f"[VOICEOVER] Zero-shot cloned voice synchronized slide durations: {slide_durations}")
