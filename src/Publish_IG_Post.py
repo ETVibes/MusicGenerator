@@ -385,21 +385,7 @@ def post_image_to_buffer(image_urls: list[str], caption: str, music_recommendati
 ==============================================================================="""
 def post_reel_to_buffer(video_url: str, caption: str, theme: str, music_recommendation: str = None, audio_id: str = None) -> dict:
     """Sends hosted video asset URL and reel metadata payload to Buffer GraphQL API."""
-    mutation = """
-    mutation CreatePost($input: CreatePostInput!) {
-      createPost(input: $input) {
-        ... on PostActionSuccess {
-          post {
-            id
-            status
-          }
-        }
-        ... on MutationError {
-          message
-        }
-      }
-    }
-    """
+    mutation = "mutation CreatePost($input: CreatePostInput!) { createPost(input: $input) { ... on PostActionSuccess { post { id status } } ... on MutationError { message } } }"
 
     final_caption = caption
     if music_recommendation:
@@ -454,18 +440,16 @@ def post_reel_to_buffer(video_url: str, caption: str, theme: str, music_recommen
         logger.info(f"Buffer API HTTP Status Code: {response.status_code}")
         logger.info(f"Buffer Raw Response Text: {response.text}")
 
-        # Check if the response is actually JSON before parsing
-        if not response.text.strip().startswith("{"):
-            logger.error(f"❌ [BUFFER NON-JSON ERROR]: {response.text[:500]}")
-            raise ValueError(f"Buffer API returned an invalid response format (Status {response.status_code})")
-            
+        # If Buffer returns a non-200 or an error page, raise it explicitly with text
+        if response.status_code != 200:
+            raise RuntimeError(f"Buffer API responded with status {response.status_code}: {response.text}")
+
         res_json = response.json()
         logger.info(f"Buffer Raw API Response: {res_json}")
         return res_json
         
     except Exception as e:
-        resp_text = response.text if 'response' in locals() and hasattr(response, 'text') else "No response text available"
-        logger.error(f"❌ [PUBLISH EXCEPTION] Failed to process Buffer request. Response text: {resp_text}")
+        logger.error(f"❌ [PUBLISH EXCEPTION] Failed during Buffer request: {e}")
         raise e
         
 """===============================================================================
