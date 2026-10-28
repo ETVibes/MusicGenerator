@@ -366,7 +366,6 @@ def generate_voiceover(
             slide_durations.append(dur + 1.0)
         else:
             slide_durations.append(dur)
-
     # 5. Concatenate all slide clips and silence breaks via FFmpeg
     concat_txt_path = audio_clips_dir / "audio_concat.txt"
     with open(concat_txt_path, "w") as f:
@@ -377,7 +376,7 @@ def generate_voiceover(
     
     subprocess.run([
         "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", "audio_concat.txt",
-        "-c:a", "aac", "-b:a", "192k", str(final_voiceover_path)
+        "-c", "copy", str(final_voiceover_path)
     ], cwd=audio_clips_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
 
     logger.info(f"[VOICEOVER] Zero-shot cloned voice synchronized slide durations: {slide_durations}")
