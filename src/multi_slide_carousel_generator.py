@@ -18,6 +18,9 @@ from google.genai import types
 from PIL import Image, ImageOps
 
 from .prompt_config import (
+    TEXT_MODEL,
+    VOICEOVER_MODEL,
+    IMAGE_MODEL,
     ASPECT_RATIO,
     TARGET_HEIGHT,
     TARGET_WIDTH,
@@ -32,8 +35,6 @@ from .prompt_config import (
 
 logger = logging.getLogger("CarouselGenerator")
 
-TEXT_MODEL = VOICEOVER_MODEL = "gemini-3.6-flash"
-IMAGE_MODEL = "gemini-2.5-flash-image"
 DEFAULT_SLIDE_DURATION_IN_SEC = 5.0
 CALL_TO_ACTION_TEXT = "Share this reel with the person you love!"
 

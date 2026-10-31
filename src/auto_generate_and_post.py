@@ -1,5 +1,5 @@
 """===============================================================================
-Module: automation_pipeline.py
+Module: auto_generate_and_post.py
 Description: Automated CLI pipeline for generating and publishing Instagram posts
              (single-image or multi-slide carousels) using Gemini generative AI
              models, local file management, and the Buffer GraphQL API.
@@ -8,6 +8,7 @@ import argparse
 import os
 import sys
 import random
+import shutil
 from dotenv import load_dotenv
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -27,6 +28,7 @@ try:
     from .prompt_config import get_random_theme
     from .single_image_generator import generate_single_image_post
     from .multi_slide_carousel_generator import generate_multi_slide_carousel
+    from .scenic_reel_generator import generate_scenic_reel
     from .config import REEL_DIR
 except ImportError as e:
     print(f"❌ Error importing project modules: {e}")
@@ -130,7 +132,7 @@ def run_auto_publish(theme: str = None, mode: str = "single", post_type: str = "
 
     # 0. Mode Selection (Randomize if not explicitly passed or if 'random' is requested)
     if not mode or mode.lower() == "random":
-        mode = random.choice(["single", "carousel"])
+        mode = random.choice(["single", "carousel", "scenic"])
         
     print("=" * 60)
     print(f"🚀 STARTING AUTOMATED INSTAGRAM PUBLISH JOB [{mode.upper()} MODE | TYPE: {post_type.upper()}]")
@@ -144,7 +146,14 @@ def run_auto_publish(theme: str = None, mode: str = "single", post_type: str = "
     # 2. Generate Content via Gemini
     print(f"[STEP 2/3] Generating {mode} post content via Gemini...")
     try:
-        if mode == "carousel":
+        if mode == "scenic":
+            # Generate Know Thyself style scenic reel with progressive text & voiceover
+            reel_path, headline, explanation, hashtags, music_recommendation, image_prompt_info = (
+                generate_scenic_reel(theme=theme, with_voiceover=with_voiceover)
+            )
+            print("  └─ Scenic Reel Generation Success!")
+            print(f"  └─ Final Reel Saved: {reel_path}")
+        elif mode == "carousel":
             # Generate multi-slide images and narrative text payload
             reel_path, slide_quotes, explanation, hashtags, music_recommendation, image_prompts = (
                 generate_multi_slide_carousel(theme=theme, num_slides=num_slides, with_voiceover=with_voiceover)
@@ -182,14 +191,13 @@ def run_auto_publish(theme: str = None, mode: str = "single", post_type: str = "
     caption = f"{headline}\n\n{explanation}\n\n🎵 Suggested Audio: {music_recommendation}\n\n✨ {hashtags}"
 
     try:
-        if post_type.lower() == "reel":
+        if post_type.lower() == "reel" or mode == "scenic":
             print("  └─ Publishing compiled video Reel directly...")
             
             target_reel = REEL_DIR / "generated_reel.mp4"
             target_reel.parent.mkdir(parents=True, exist_ok=True)
             
             if Path(reel_path).resolve() != target_reel.resolve():
-                import shutil
                 shutil.copy(reel_path, target_reel)
                 
             res = publish_latest_reel(str(reel_path), caption, theme)
@@ -229,9 +237,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--mode",
         type=str,
-        choices=["single", "carousel", "random"],
+        choices=["single", "carousel", "scenic", "random"],
         default="single",
-        help="Post format mode: single, carousel, or random",
+        help="Post format mode: single, carousel, scenic, or random",
     )
     parser.add_argument(
         "--type",

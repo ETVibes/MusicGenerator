@@ -11,6 +11,8 @@ import textwrap
 TARGET_WIDTH = 1080
 TARGET_HEIGHT = 1350
 ASPECT_RATIO = "4:5"
+TEXT_MODEL = VOICEOVER_MODEL = "gemini-3.6-flash"
+IMAGE_MODEL = "gemini-2.5-flash-image"
 
 # Shared image-quality and typography constraints.
 POSE_CONSTRAINT = (
@@ -326,38 +328,4 @@ def get_text_prompt_segments_by_theme(theme: str) -> tuple[str, str, str, str, s
         last_slide = "A comforting takeaway built to be shared with a close friend."
         ban = "No cynicism, no coldness, no judgment."
 
-    return feel, voice, slide_one, mid_slides, last_slide, ban
-    
-def get_text_prompt_segments_by_theme_old(theme: str) -> tuple[str, str, str, str, str, str]:
-    normalized_theme = (theme or "").strip().lower()
-
-    if "love" in normalized_theme or "romance" in normalized_theme:
-        feel = "positive, warm, and romantic"
-        voice = "A warm, affectionate partner or close friend speaking with genuine care. Uplifting, tender, and reassuring. Use 'you'."
-        slide_one = "A sweet, inviting hook about appreciating your person or a moment of connection."
-        mid_slides = "Tender, positive observations about comfort, safety, or everyday affection."
-        last_slide = "A heartwarming conclusion or gentle reminder worth saving or sending to a loved one."
-        ban = "No heartbreak, no sadness, no nostalgia."
-    elif "mindfulness" in normalized_theme or "peace" in normalized_theme:
-        feel = "calm, grounding, and reflective"
-        voice = "A gentle, quiet guide helping you pause and breathe. Soothing and centered. Use 'you'."
-        slide_one = "A peaceful hook that invites the reader to drop their shoulders and slow down."
-        mid_slides = "Simple observations about the present moment, breathing, and letting go of rush."
-        last_slide = "A grounding takeaway offering stillness and quiet reassurance."
-        ban = "No anxiety, no panic, no stress."
-    elif "growth" in normalized_theme or "courage" in normalized_theme:
-        feel = "encouraging, empowering, and strong"
-        voice = "A supportive mentor cheering you on quietly from your corner. Inspiring and steady. Use 'you'."
-        slide_one = "A bold, motivating hook about taking a small step forward."
-        mid_slides = "Honest encouragement about building strength through daily effort."
-        last_slide = "An empowering reminder of your own capability and resilience."
-        ban = "No self-doubt, no giving up, no despair."
-    else:
-        feel = "warm, perceptive, and comforting"
-        voice = "A quiet, perceptive friend talking to one person late at night. Warm, plain, specific. Use 'you'."
-        slide_one = "A scroll-stopping hook about a small, relatable daily moment."
-        mid_slides = "Quiet observations that develop the thought naturally."
-        last_slide = "A comforting takeaway worth saving or sharing."
-        ban = "No cynicism, no coldness, no judgment."
-
-    return feel, voice, slide_one, mid_slides, last_slide, ban    
+    return feel, voice, slide_one, mid_slides, last_slide, ban   
