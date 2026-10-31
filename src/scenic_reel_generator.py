@@ -180,7 +180,7 @@ MUSIC: <song title - artist | genre/mood>
         voiceover_path = output_dir / "voiceover.wav"
         subprocess.run([
             "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", "audio_concat.txt",
-            "-c", "copy", str(voiceover_path)
+            "-c:a", "pcm_s16le", str(voiceover_path)
         ], cwd=audio_clips_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
     else:
         sentence_durations = [4.0] * len(sentences)
