@@ -187,9 +187,122 @@ MUSIC: <song title - artist | genre/mood>
         voiceover_path = None
 
     # =========================================================================
-    # STEP 4: Progressive Subtitle Video Compositing
+    # STEP 4: Progressive Subtitle Video Compositing & Final Compilation
     # =========================================================================
     logger.info("[SCENIC REEL] Rendering progressive subtitle frames and compiling base video...")
     
     video_clips_dir = output_dir / "video_segments"
     video_clips_dir.mkdir(parents=True, exist_ok=True)
+    
+    base_img = Image.open(base_image_path).convert("RGB")
+    font_path = FONTS_DIR / "Roboto-Bold.ttf"
+    if not font_path.exists():
+        font_path = FONTS_DIR / "DejaVuSans-Bold.ttf"
+        if not font_path.exists():
+            font_path = None
+
+    try:
+        font = ImageFont.truetype(str(font_path), 52) if font_path else ImageFont.load_default()
+    except Exception:
+        font = ImageFont.load_default()
+
+    segment_video_paths = []
+
+    # Render a video segment for each sentence showing accumulated text up to that sentence
+    accumulated_text = ""
+    for idx, (sentence, duration) in enumerate(zip(sentences, sentence_durations), start=1):
+        accumulated_text = f"{accumulated_text} {sentence}".strip()
+        
+        # Draw text onto a copy of the base image
+        frame_img = base_img.copy()
+        draw = ImageDraw.Draw(frame_img)
+        
+        # Wrap text nicely for vertical 1080x1920 layout
+        margin = 100
+        max_width = TARGET_WIDTH - (margin * 2)
+        wrapped_lines = []
+        for paragraph in accumulated_text.split("\n"):
+            wrapped_lines.extend(textwrap.wrap(paragraph, width=32))
+            
+        # Calculate total text block height to center vertically in the upper/middle area
+        line_height = 65
+        total_text_height = len(wrapped_lines) * line_height
+        y_text = (TARGET_HEIGHT // 2) - (total_text_height // 2) - 100
+
+        for line in wrapped_lines:
+            # Get bounding box for horizontal centering
+            bbox = draw.textbbox((0, 0), line, font=font)
+            w = bbox[2] - bbox[0]
+            x_text = (TARGET_WIDTH - w) // 2
+            
+            # Draw dark drop shadow for cinematic readability
+            draw.text((x_text + 3, y_text + 3), line, font=font, fill=(0, 0, 0))
+            draw.text((x_text, y_text), line, font=font, fill=(255, 255, 255))
+            y_text += line_height
+
+        segment_img_path = video_clips_dir / f"segment_{idx}.jpg"
+        frame_img.save(segment_img_path, "JPEG", quality=95)
+
+        # Create video clip with MoviePy using exact audio clip duration
+        clip_audio_path = audio_clips_dir / f"sentence_{idx}_voice.wav"
+        img_clip = ImageClip(str(segment_img_path)).with_duration(duration)
+        
+        if with_voiceover and clip_audio_path.exists():
+            from moviepy import AudioFileClip
+            audio_clip = AudioFileClip(str(clip_audio_path))
+            img_clip = img_clip.with_audio(audio_clip)
+
+        segment_video_paths.append(img_clip)
+
+    # Concatenate all video segments together
+    final_video_base = concatenate_videoclips(segment_video_paths, method="compose")
+    base_reel_output = output_dir / "base_scenic_reel.mp4"
+    
+    final_video_base.write_videofile(
+        str(base_reel_output),
+        fps=24,
+        codec="libx264",
+        audio_codec="aac" if with_voiceover else None,
+        preset="medium",
+        logger=None
+    )
+
+    # =========================================================================
+    # STEP 5: Mix Background Music & Final Output Generation
+    # =========================================================================
+    logger.info("[SCENIC REEL] Mixing background music track...")
+    final_reel_path = REEL_DIR / "generated_reel.mp4"
+    REEL_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Resolve and mix music track if available
+    music_file = resolve_and_fetch_audio(music_recommendation)
+    if music_file and Path(music_file).exists():
+        try:
+            # Use ffmpeg to mix voiceover with background music at lower volume
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", str(base_reel_output),
+                "-i", str(music_file),
+                "-filter_complex", "[1:a]volume=0.25[music];[0:a][music]amix=inputs=2:duration=first[a]",
+                "-map", "0:v", "-map", "[a]",
+                "-c:v", "copy", "-c:a", "aac",
+                str(final_reel_path)
+            ]
+            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        except Exception as e:
+            logger.warning(f"⚠️ Music mixing failed ({e}), falling back to base reel audio.")
+            shutil.copy(base_reel_output, final_reel_path)
+    else:
+        shutil.copy(base_reel_output, final_reel_path)
+
+    logger.info(f"🎉 [SCENIC REEL SUCCESS] Final Reel ready at: {final_reel_path}")
+
+    # Return full required tuple payload
+    return (
+        str(final_reel_path),
+        lesson_text,
+        explanation,
+        hashtags,
+        music_recommendation,
+        image_prompt
+    )
