@@ -15,6 +15,7 @@ from google import genai
 from google.genai import types
 from PIL import Image, ImageOps, ImageDraw, ImageFont
 import textwrap
+from moviepy import ImageClip, concatenate_videoclips, AudioFileClip
 
 from .config import REEL_DIR, FONTS_DIR
 from .prompt_config import TARGET_WIDTH, TARGET_HEIGHT, ASPECT_RATIO, TEXT_MODEL, IMAGE_MODEL
