@@ -128,9 +128,31 @@ MUSIC: <song title - artist | genre/mood>
     logger.info(f"  └─ Scenic background saved to {base_image_path}")
 
     # =========================================================================
-    # STEP 3: Generate Voiceover & Split Sentences for Progressive Display
+    # STEP 3: Generate Voiceover & Split Sentences into Short Single-Line Phrases
     # =========================================================================
-    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', lesson_text) if s.strip()]
+    # Helper to break long sentences into short, punchy single-line phrase chunks (6-9 words max)
+    def split_into_short_phrases(text: str, max_words=6) -> list[str]:
+        raw_parts = re.split(r'(?<=[.,;!?])\s+', text)
+        phrases = []
+        for part in raw_parts:
+            part = part.strip()
+            if not part:
+                continue
+            words = part.split()
+            if len(words) <= max_words:
+                phrases.append(part)
+            else:
+                current_chunk = []
+                for w in words:
+                    current_chunk.append(w)
+                    if len(current_chunk) >= max_words:
+                        phrases.append(" ".join(current_chunk))
+                        current_chunk = []
+                if current_chunk:
+                    phrases.append(" ".join(current_chunk))
+        return phrases
+
+    sentences = split_into_short_phrases(lesson_text, max_words=8)
     if not sentences:
         sentences = [lesson_text]
 
@@ -185,7 +207,7 @@ MUSIC: <song title - artist | genre/mood>
             "-c:a", "pcm_s16le", str(voiceover_path.resolve())
         ], cwd=audio_clips_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
     else:
-        sentence_durations = [4.0] * len(sentences)
+        sentence_durations = [2.5] * len(sentences)
         voiceover_path = None
 
     # =========================================================================
@@ -213,26 +235,22 @@ MUSIC: <song title - artist | genre/mood>
 
     # Render each sentence independently (NON-accumulative) synchronized with its audio duration
     for idx, (sentence, duration) in enumerate(zip(sentences, sentence_durations), start=1):
-        
-        # Draw text onto a fresh copy of the base image for this sentence only
         frame_img = base_img.copy()
         draw = ImageDraw.Draw(frame_img)
         
-        # Wrap text with a clean width constraint (e.g., 40 chars)
-        wrapped_lines = textwrap.wrap(sentence, width=40)
+        # Use a strict, narrow width constraint so it never exceeds 1 line
+        wrapped_lines = textwrap.wrap(sentence, width=28)
             
-        # Calculate total text block height to center vertically in the upper/middle area
         line_height = 56
         total_text_height = len(wrapped_lines) * line_height
         y_text = (TARGET_HEIGHT // 2) - (total_text_height // 2) - 100
 
         for line in wrapped_lines:
-            # Get bounding box for horizontal centering
             bbox = draw.textbbox((0, 0), line, font=font)
             w = bbox[2] - bbox[0]
             x_text = (TARGET_WIDTH - w) // 2
             
-            # Draw dark drop shadow for cinematic readability
+            # Cinematic drop shadow for readability
             draw.text((x_text + 3, y_text + 3), line, font=font, fill=(0, 0, 0))
             draw.text((x_text, y_text), line, font=font, fill=(255, 255, 255))
             y_text += line_height
@@ -240,14 +258,14 @@ MUSIC: <song title - artist | genre/mood>
         segment_img_path = video_clips_dir / f"segment_{idx}.jpg"
         frame_img.save(segment_img_path, "JPEG", quality=95)
 
-        # Create video clip with MoviePy using exact audio clip duration for perfect sync
-        clip_audio_path = audio_clips_dir / f"sentence_{idx}_voice.wav"
+        # Create image clip with exact audio clip duration
         img_clip = ImageClip(str(segment_img_path)).with_duration(duration)
         
-        if with_voiceover and clip_audio_path.exists():
-            from moviepy import AudioFileClip
-            audio_clip = AudioFileClip(str(clip_audio_path))
-            img_clip = img_clip.with_audio(audio_clip)
+        if with_voiceover:
+            clip_audio_path = audio_clips_dir / f"sentence_{idx}_voice.wav"
+            if Path(clip_audio_path).exists():
+                audio_clip = AudioFileClip(str(clip_audio_path))
+                img_clip = img_clip.with_audio(audio_clip)
 
         segment_video_paths.append(img_clip)
 
