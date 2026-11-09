@@ -277,7 +277,9 @@ MUSIC: <song title - artist | genre/mood>
 
     # Resolve and mix music track if available
     music_file = resolve_and_fetch_audio(music_recommendation)
-    if music_file and Path(music_file).exists():
+    
+    # Ensure music_file is a valid path string/object and not an error dictionary/None
+    if music_file and isinstance(music_file, (str, Path)) and Path(music_file).exists():
         try:
             # Use ffmpeg to mix voiceover with background music at lower volume
             cmd = [
