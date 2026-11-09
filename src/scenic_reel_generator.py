@@ -189,9 +189,9 @@ MUSIC: <song title - artist | genre/mood>
         sentence_durations = [2.5] * len(sentences)
 
     # =========================================================================
-    # STEP 4: Large Readable Subtitle Rendering (1-2 Rows Max) & Compilation
+    # STEP 4: Relative-Sized Subtitle Rendering & Final Compilation
     # =========================================================================
-    logger.info("[SCENIC REEL] Rendering large readable subtitle frames...")
+    logger.info("[SCENIC REEL] Rendering relative-scaled subtitle frames...")
     
     video_clips_dir = output_dir / "video_segments"
     video_clips_dir.mkdir(parents=True, exist_ok=True)
@@ -203,9 +203,12 @@ MUSIC: <song title - artist | genre/mood>
         if not font_path.exists():
             font_path = None
 
+    # Derive font size and spacing relatively from TARGET_WIDTH / TARGET_HEIGHT
+    relative_font_size = max(36, int(TARGET_WIDTH / 12))  # ~90px for 1080p width
+    line_height = int(relative_font_size * 1.25)
+
     try:
-        # Increased font size to 92 for high readability and bold prominence
-        font = ImageFont.truetype(str(font_path), 92) if font_path else ImageFont.load_default()
+        font = ImageFont.truetype(str(font_path), relative_font_size) if font_path else ImageFont.load_default()
     except Exception:
         font = ImageFont.load_default()
 
@@ -215,20 +218,20 @@ MUSIC: <song title - artist | genre/mood>
         frame_img = base_img.copy()
         draw = ImageDraw.Draw(frame_img)
         
-        # Controlled width constraint (32 chars) so phrases wrap into at most 2 clean rows
+        # Wrap characters dynamically based on relative width proportion (approx 32-35 chars per line)
         wrapped_lines = textwrap.wrap(sentence, width=32)
             
-        line_height = 110
         total_text_height = len(wrapped_lines) * line_height
-        y_text = (TARGET_HEIGHT // 2) - (total_text_height // 2) - 100
+        y_text = (TARGET_HEIGHT // 2) - (total_text_height // 2) - int(TARGET_HEIGHT * 0.08)
 
         for line in wrapped_lines:
             bbox = draw.textbbox((0, 0), line, font=font)
             w = bbox[2] - bbox[0]
             x_text = (TARGET_WIDTH - w) // 2
             
-            # Cinematic drop shadow for readability against scenic backgrounds
-            draw.text((x_text + 5, y_text + 5), line, font=font, fill=(0, 0, 0))
+            # Dynamic drop shadow offset relative to font size
+            shadow_offset = max(2, int(relative_font_size * 0.05))
+            draw.text((x_text + shadow_offset, y_text + shadow_offset), line, font=font, fill=(0, 0, 0))
             draw.text((x_text, y_text), line, font=font, fill=(255, 255, 255))
             y_text += line_height
 
