@@ -128,31 +128,22 @@ MUSIC: <song title - artist | genre/mood>
     logger.info(f"  └─ Scenic background saved to {base_image_path}")
 
     # =========================================================================
-    # STEP 3: Generate Voiceover & Split Sentences into Short Single-Line Phrases
+    # STEP 3: Generate Voiceover & Chunk Lesson into ~14-Word Single Lines
     # =========================================================================
-    # Helper to break long sentences into short, punchy single-line phrase chunks (6-9 words max)
-    def split_into_short_phrases(text: str, max_words=6) -> list[str]:
-        raw_parts = re.split(r'(?<=[.,;!?])\s+', text)
-        phrases = []
-        for part in raw_parts:
-            part = part.strip()
-            if not part:
-                continue
-            words = part.split()
-            if len(words) <= max_words:
-                phrases.append(part)
-            else:
-                current_chunk = []
-                for w in words:
-                    current_chunk.append(w)
-                    if len(current_chunk) >= max_words:
-                        phrases.append(" ".join(current_chunk))
-                        current_chunk = []
-                if current_chunk:
-                    phrases.append(" ".join(current_chunk))
-        return phrases
+    def chunk_by_word_count(text: str, words_per_chunk=14) -> list[str]:
+        words = text.split()
+        chunks = []
+        current = []
+        for w in words:
+            current.append(w)
+            if len(current) >= words_per_chunk:
+                chunks.append(" ".join(current))
+                current = []
+        if current:
+            chunks.append(" ".join(current))
+        return chunks
 
-    sentences = split_into_short_phrases(lesson_text, max_words=6)
+    sentences = chunk_by_word_count(lesson_text, words_per_chunk=14)
     if not sentences:
         sentences = [lesson_text]
 
@@ -194,26 +185,13 @@ MUSIC: <song title - artist | genre/mood>
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True
             )
             sentence_durations.append(float(dur_res.stdout.strip()))
-
-        # Concatenate audio sentence clips into a single voiceover file
-        concat_txt = audio_clips_dir / "audio_concat.txt"
-        with open(concat_txt, "w") as f:
-            for p in sentence_audio_paths:
-                f.write(f"file '{Path(p).name}'\n")
-
-        voiceover_path = output_dir / "voiceover.wav"
-        subprocess.run([
-            "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", "audio_concat.txt",
-            "-c:a", "pcm_s16le", str(voiceover_path.resolve())
-        ], cwd=audio_clips_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
     else:
-        sentence_durations = [2.5] * len(sentences)
-        voiceover_path = None
+        sentence_durations = [3.5] * len(sentences)
 
     # =========================================================================
-    # STEP 4: Independent Sentence Subtitle Compositing & Final Compilation
+    # STEP 4: Large Single-Line Subtitle Rendering & Final Compilation
     # =========================================================================
-    logger.info("[SCENIC REEL] Rendering synchronized subtitle frames and compiling base video...")
+    logger.info("[SCENIC REEL] Rendering large single-line subtitle frames...")
     
     video_clips_dir = output_dir / "video_segments"
     video_clips_dir.mkdir(parents=True, exist_ok=True)
@@ -226,22 +204,21 @@ MUSIC: <song title - artist | genre/mood>
             font_path = None
 
     try:
-        # Adjusted font size (e.g., 44) to keep text neat and readable
-        font = ImageFont.truetype(str(font_path), 44) if font_path else ImageFont.load_default()
+        # Increased font size to 72 for high readability and prominence
+        font = ImageFont.truetype(str(font_path), 72) if font_path else ImageFont.load_default()
     except Exception:
         font = ImageFont.load_default()
 
     segment_video_paths = []
 
-    # Render each sentence independently (NON-accumulative) synchronized with its audio duration
     for idx, (sentence, duration) in enumerate(zip(sentences, sentence_durations), start=1):
         frame_img = base_img.copy()
         draw = ImageDraw.Draw(frame_img)
         
-        # Use a strict, narrow width constraint so it never exceeds 1 line
-        wrapped_lines = textwrap.wrap(sentence, width=28)
+        # Increased width constraint (e.g., 48 chars) so 14-word phrases stay on 1 single line
+        wrapped_lines = textwrap.wrap(sentence, width=48)
             
-        line_height = 56
+        line_height = 86
         total_text_height = len(wrapped_lines) * line_height
         y_text = (TARGET_HEIGHT // 2) - (total_text_height // 2) - 100
 
@@ -250,15 +227,14 @@ MUSIC: <song title - artist | genre/mood>
             w = bbox[2] - bbox[0]
             x_text = (TARGET_WIDTH - w) // 2
             
-            # Cinematic drop shadow for readability
-            draw.text((x_text + 3, y_text + 3), line, font=font, fill=(0, 0, 0))
+            # Cinematic drop shadow for readability against scenic backgrounds
+            draw.text((x_text + 4, y_text + 4), line, font=font, fill=(0, 0, 0))
             draw.text((x_text, y_text), line, font=font, fill=(255, 255, 255))
             y_text += line_height
 
         segment_img_path = video_clips_dir / f"segment_{idx}.jpg"
         frame_img.save(segment_img_path, "JPEG", quality=95)
 
-        # Create image clip with exact audio clip duration
         img_clip = ImageClip(str(segment_img_path)).with_duration(duration)
         
         if with_voiceover:
@@ -269,7 +245,6 @@ MUSIC: <song title - artist | genre/mood>
 
         segment_video_paths.append(img_clip)
 
-    # Concatenate all video segments together
     final_video_base = concatenate_videoclips(segment_video_paths, method="compose")
     base_reel_output = output_dir / "base_scenic_reel.mp4"
     
