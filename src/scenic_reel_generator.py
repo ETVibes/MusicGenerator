@@ -152,7 +152,7 @@ MUSIC: <song title - artist | genre/mood>
                     phrases.append(" ".join(current_chunk))
         return phrases
 
-    sentences = split_into_short_phrases(lesson_text, max_words=8)
+    sentences = split_into_short_phrases(lesson_text, max_words=6)
     if not sentences:
         sentences = [lesson_text]
 
