@@ -128,9 +128,9 @@ MUSIC: <song title - artist | genre/mood>
     logger.info(f"  └─ Scenic background saved to {base_image_path}")
 
     # =========================================================================
-    # STEP 3: Generate Voiceover & Chunk Lesson into ~14-Word Single Lines
+    # STEP 3: Generate Voiceover & Chunk Lesson into ~9-Word Phrases
     # =========================================================================
-    def chunk_by_word_count(text: str, words_per_chunk=14) -> list[str]:
+    def chunk_by_word_count(text: str, words_per_chunk=9) -> list[str]:
         words = text.split()
         chunks = []
         current = []
@@ -143,7 +143,7 @@ MUSIC: <song title - artist | genre/mood>
             chunks.append(" ".join(current))
         return chunks
 
-    sentences = chunk_by_word_count(lesson_text, words_per_chunk=14)
+    sentences = chunk_by_word_count(lesson_text, words_per_chunk=9)
     if not sentences:
         sentences = [lesson_text]
 
@@ -186,12 +186,12 @@ MUSIC: <song title - artist | genre/mood>
             )
             sentence_durations.append(float(dur_res.stdout.strip()))
     else:
-        sentence_durations = [3.5] * len(sentences)
+        sentence_durations = [2.5] * len(sentences)
 
     # =========================================================================
-    # STEP 4: Large Single-Line Subtitle Rendering & Final Compilation
+    # STEP 4: Large Readable Subtitle Rendering (1-2 Rows Max) & Compilation
     # =========================================================================
-    logger.info("[SCENIC REEL] Rendering large single-line subtitle frames...")
+    logger.info("[SCENIC REEL] Rendering large readable subtitle frames...")
     
     video_clips_dir = output_dir / "video_segments"
     video_clips_dir.mkdir(parents=True, exist_ok=True)
@@ -204,8 +204,8 @@ MUSIC: <song title - artist | genre/mood>
             font_path = None
 
     try:
-        # Increased font size to 72 for high readability and prominence
-        font = ImageFont.truetype(str(font_path), 72) if font_path else ImageFont.load_default()
+        # Increased font size to 92 for high readability and bold prominence
+        font = ImageFont.truetype(str(font_path), 92) if font_path else ImageFont.load_default()
     except Exception:
         font = ImageFont.load_default()
 
@@ -215,10 +215,10 @@ MUSIC: <song title - artist | genre/mood>
         frame_img = base_img.copy()
         draw = ImageDraw.Draw(frame_img)
         
-        # Increased width constraint (e.g., 48 chars) so 14-word phrases stay on 1 single line
-        wrapped_lines = textwrap.wrap(sentence, width=48)
+        # Controlled width constraint (32 chars) so phrases wrap into at most 2 clean rows
+        wrapped_lines = textwrap.wrap(sentence, width=32)
             
-        line_height = 86
+        line_height = 110
         total_text_height = len(wrapped_lines) * line_height
         y_text = (TARGET_HEIGHT // 2) - (total_text_height // 2) - 100
 
@@ -228,7 +228,7 @@ MUSIC: <song title - artist | genre/mood>
             x_text = (TARGET_WIDTH - w) // 2
             
             # Cinematic drop shadow for readability against scenic backgrounds
-            draw.text((x_text + 4, y_text + 4), line, font=font, fill=(0, 0, 0))
+            draw.text((x_text + 5, y_text + 5), line, font=font, fill=(0, 0, 0))
             draw.text((x_text, y_text), line, font=font, fill=(255, 255, 255))
             y_text += line_height
 
