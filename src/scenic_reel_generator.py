@@ -188,10 +188,10 @@ MUSIC: <song title - artist | genre/mood>
     else:
         sentence_durations = [2.5] * len(sentences)
 
-    # =========================================================================
+# =========================================================================
     # STEP 4: Relative-Sized Subtitle Rendering & Final Compilation
     # =========================================================================
-    logger.info("[SCENIC REEL] Rendering relative-scaled subtitle frames...")
+    logger.info("[SCENIC REEL] Rendering large relative-scaled subtitle frames...")
     
     video_clips_dir = output_dir / "video_segments"
     video_clips_dir.mkdir(parents=True, exist_ok=True)
@@ -203,9 +203,9 @@ MUSIC: <song title - artist | genre/mood>
         if not font_path.exists():
             font_path = None
 
-    # Derive font size and spacing relatively from TARGET_WIDTH / TARGET_HEIGHT
-    relative_font_size = max(36, int(TARGET_WIDTH / 12))  # ~90px for 1080p width
-    line_height = int(relative_font_size * 1.25)
+    # Derive a much larger, prominent font size relative to TARGET_WIDTH (e.g., ~135-150px for 1080p)
+    relative_font_size = max(50, int(TARGET_WIDTH / 7.5))
+    line_height = int(relative_font_size * 1.3)
 
     try:
         font = ImageFont.truetype(str(font_path), relative_font_size) if font_path else ImageFont.load_default()
@@ -218,8 +218,8 @@ MUSIC: <song title - artist | genre/mood>
         frame_img = base_img.copy()
         draw = ImageDraw.Draw(frame_img)
         
-        # Wrap characters dynamically based on relative width proportion (approx 32-35 chars per line)
-        wrapped_lines = textwrap.wrap(sentence, width=32)
+        # Slightly wider character wrap constraint to match the larger font size cleanly (approx 26-28 chars per line)
+        wrapped_lines = textwrap.wrap(sentence, width=28)
             
         total_text_height = len(wrapped_lines) * line_height
         y_text = (TARGET_HEIGHT // 2) - (total_text_height // 2) - int(TARGET_HEIGHT * 0.08)
@@ -229,8 +229,8 @@ MUSIC: <song title - artist | genre/mood>
             w = bbox[2] - bbox[0]
             x_text = (TARGET_WIDTH - w) // 2
             
-            # Dynamic drop shadow offset relative to font size
-            shadow_offset = max(2, int(relative_font_size * 0.05))
+            # Bold drop shadow offset relative to font size for strong contrast
+            shadow_offset = max(3, int(relative_font_size * 0.06))
             draw.text((x_text + shadow_offset, y_text + shadow_offset), line, font=font, fill=(0, 0, 0))
             draw.text((x_text, y_text), line, font=font, fill=(255, 255, 255))
             y_text += line_height
