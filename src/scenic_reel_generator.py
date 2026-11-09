@@ -10,6 +10,7 @@ import json
 import logging
 import re
 import subprocess
+import shutil
 from pathlib import Path
 from google import genai
 from google.genai import types
