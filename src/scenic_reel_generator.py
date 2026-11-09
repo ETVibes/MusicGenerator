@@ -189,9 +189,9 @@ MUSIC: <song title - artist | genre/mood>
         voiceover_path = None
 
     # =========================================================================
-    # STEP 4: Progressive Subtitle Video Compositing & Final Compilation
+    # STEP 4: Independent Sentence Subtitle Compositing & Final Compilation
     # =========================================================================
-    logger.info("[SCENIC REEL] Rendering progressive subtitle frames and compiling base video...")
+    logger.info("[SCENIC REEL] Rendering synchronized subtitle frames and compiling base video...")
     
     video_clips_dir = output_dir / "video_segments"
     video_clips_dir.mkdir(parents=True, exist_ok=True)
@@ -204,30 +204,25 @@ MUSIC: <song title - artist | genre/mood>
             font_path = None
 
     try:
-        font = ImageFont.truetype(str(font_path), 52) if font_path else ImageFont.load_default()
+        # Adjusted font size (e.g., 44) to keep text neat and readable
+        font = ImageFont.truetype(str(font_path), 44) if font_path else ImageFont.load_default()
     except Exception:
         font = ImageFont.load_default()
 
     segment_video_paths = []
 
-    # Render a video segment for each sentence showing accumulated text up to that sentence
-    accumulated_text = ""
+    # Render each sentence independently (NON-accumulative) synchronized with its audio duration
     for idx, (sentence, duration) in enumerate(zip(sentences, sentence_durations), start=1):
-        accumulated_text = f"{accumulated_text} {sentence}".strip()
         
-        # Draw text onto a copy of the base image
+        # Draw text onto a fresh copy of the base image for this sentence only
         frame_img = base_img.copy()
         draw = ImageDraw.Draw(frame_img)
         
-        # Wrap text nicely for vertical 1080x1920 layout
-        margin = 100
-        max_width = TARGET_WIDTH - (margin * 2)
-        wrapped_lines = []
-        for paragraph in accumulated_text.split("\n"):
-            wrapped_lines.extend(textwrap.wrap(paragraph, width=32))
+        # Wrap text with a clean width constraint (e.g., 40 chars)
+        wrapped_lines = textwrap.wrap(sentence, width=40)
             
         # Calculate total text block height to center vertically in the upper/middle area
-        line_height = 65
+        line_height = 56
         total_text_height = len(wrapped_lines) * line_height
         y_text = (TARGET_HEIGHT // 2) - (total_text_height // 2) - 100
 
@@ -245,7 +240,7 @@ MUSIC: <song title - artist | genre/mood>
         segment_img_path = video_clips_dir / f"segment_{idx}.jpg"
         frame_img.save(segment_img_path, "JPEG", quality=95)
 
-        # Create video clip with MoviePy using exact audio clip duration
+        # Create video clip with MoviePy using exact audio clip duration for perfect sync
         clip_audio_path = audio_clips_dir / f"sentence_{idx}_voice.wav"
         img_clip = ImageClip(str(segment_img_path)).with_duration(duration)
         
