@@ -19,7 +19,7 @@ import textwrap
 from moviepy import ImageClip, concatenate_videoclips, AudioFileClip
 
 from .config import REEL_DIR, FONTS_DIR
-from .prompt_config import TARGET_WIDTH, TARGET_HEIGHT, ASPECT_RATIO, TEXT_MODEL, IMAGE_MODEL
+from .prompt_config import TARGET_WIDTH, TARGET_HEIGHT, ASPECT_RATIO, TEXT_MODEL, IMAGE_MODEL, draw_quote_on_image
 from .Publish_IG_Post import resolve_and_fetch_audio
 
 logger = logging.getLogger("ScenicReelGenerator")
@@ -188,56 +188,36 @@ MUSIC: <song title - artist | genre/mood>
     else:
         sentence_durations = [2.5] * len(sentences)
 
-# =========================================================================
-    # STEP 4: Relative-Sized Subtitle Rendering & Final Compilation
     # =========================================================================
-    logger.info("[SCENIC REEL] Rendering large relative-scaled subtitle frames...")
+    # STEP 4: Carousel-Style Subtitle Rendering & Final Compilation
+    # =========================================================================
+    logger.info("[SCENIC REEL] Rendering subtitle frames using carousel text style...")
     
     video_clips_dir = output_dir / "video_segments"
     video_clips_dir.mkdir(parents=True, exist_ok=True)
     
     base_img = Image.open(base_image_path).convert("RGB")
-    font_path = FONTS_DIR / "Roboto-Bold.ttf"
-    if not font_path.exists():
-        font_path = FONTS_DIR / "DejaVuSans-Bold.ttf"
-        if not font_path.exists():
-            font_path = None
-
-    # Derive a much larger, prominent font size relative to TARGET_WIDTH (e.g., ~135-150px for 1080p)
-    relative_font_size = max(50, int(TARGET_WIDTH / 7.5))
-    line_height = int(relative_font_size * 1.3)
-
-    try:
-        font = ImageFont.truetype(str(font_path), relative_font_size) if font_path else ImageFont.load_default()
-    except Exception:
-        font = ImageFont.load_default()
-
     segment_video_paths = []
 
     for idx, (sentence, duration) in enumerate(zip(sentences, sentence_durations), start=1):
-        frame_img = base_img.copy()
-        draw = ImageDraw.Draw(frame_img)
-        
-        # Slightly wider character wrap constraint to match the larger font size cleanly (approx 26-28 chars per line)
-        wrapped_lines = textwrap.wrap(sentence, width=28)
-            
-        total_text_height = len(wrapped_lines) * line_height
-        y_text = (TARGET_HEIGHT // 2) - (total_text_height // 2) - int(TARGET_HEIGHT * 0.08)
-
-        for line in wrapped_lines:
-            bbox = draw.textbbox((0, 0), line, font=font)
-            w = bbox[2] - bbox[0]
-            x_text = (TARGET_WIDTH - w) // 2
-            
-            # Bold drop shadow offset relative to font size for strong contrast
-            shadow_offset = max(3, int(relative_font_size * 0.06))
-            draw.text((x_text + shadow_offset, y_text + shadow_offset), line, font=font, fill=(0, 0, 0))
-            draw.text((x_text, y_text), line, font=font, fill=(255, 255, 255))
-            y_text += line_height
-
         segment_img_path = video_clips_dir / f"segment_{idx}.jpg"
-        frame_img.save(segment_img_path, "JPEG", quality=95)
+        
+        # Save a temporary clean base image copy for this segment
+        temp_path = output_dir / f"temp_segment_{idx}.jpg"
+        base_img.save(temp_path, "JPEG", quality=95)
 
+        # Draw quote using the exact same function and font configuration as the multi-slide carousel
+        draw_quote_on_image(
+            image_path=str(temp_path),
+            quote=sentence,
+            output_path=str(segment_img_path),
+            font_path=str(FONTS_DIR / "Montserrat-SemiBold.ttf"),
+            font_size=52,
+            max_chars_per_line=28
+        )
+        temp_path.unlink(missing_ok=True)
+
+        # Create image clip with exact audio duration and bind audio
         img_clip = ImageClip(str(segment_img_path)).with_duration(duration)
         
         if with_voiceover:
@@ -248,6 +228,7 @@ MUSIC: <song title - artist | genre/mood>
 
         segment_video_paths.append(img_clip)
 
+    # Concatenate all video segments together
     final_video_base = concatenate_videoclips(segment_video_paths, method="compose")
     base_reel_output = output_dir / "base_scenic_reel.mp4"
     
