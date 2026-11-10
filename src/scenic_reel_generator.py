@@ -128,22 +128,10 @@ MUSIC: <song title - artist | genre/mood>
     logger.info(f"  └─ Scenic background saved to {base_image_path}")
 
     # =========================================================================
-    # STEP 3: Generate Voiceover & Chunk Lesson into ~9-Word Phrases
+    # STEP 3: Generate Voiceover & Split by Full Sentences (No Mid-Sentence Pauses)
     # =========================================================================
-    def chunk_by_word_count(text: str, words_per_chunk=9) -> list[str]:
-        words = text.split()
-        chunks = []
-        current = []
-        for w in words:
-            current.append(w)
-            if len(current) >= words_per_chunk:
-                chunks.append(" ".join(current))
-                current = []
-        if current:
-            chunks.append(" ".join(current))
-        return chunks
-
-    sentences = chunk_by_word_count(lesson_text, words_per_chunk=9)
+    # Split text naturally by full sentence endings (. ! ?)
+    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', lesson_text) if s.strip()]
     if not sentences:
         sentences = [lesson_text]
 
@@ -179,19 +167,19 @@ MUSIC: <song title - artist | genre/mood>
 
             sentence_audio_paths.append(str(clip_path))
             
-            # Get exact duration using ffprobe
+            # Get exact duration using ffprobe for perfect 1:1 sync
             dur_res = subprocess.run(
                 ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(clip_path)],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True
             )
             sentence_durations.append(float(dur_res.stdout.strip()))
     else:
-        sentence_durations = [2.5] * len(sentences)
+        sentence_durations = [4.5] * len(sentences)
 
     # =========================================================================
-    # STEP 4: Carousel-Style Subtitle Rendering & Final Compilation
+    # STEP 4: Full-Sentence Subtitle Rendering & Compilation
     # =========================================================================
-    logger.info("[SCENIC REEL] Rendering subtitle frames using carousel text style...")
+    logger.info("[SCENIC REEL] Rendering full-sentence subtitle frames...")
     
     video_clips_dir = output_dir / "video_segments"
     video_clips_dir.mkdir(parents=True, exist_ok=True)
@@ -202,18 +190,18 @@ MUSIC: <song title - artist | genre/mood>
     for idx, (sentence, duration) in enumerate(zip(sentences, sentence_durations), start=1):
         segment_img_path = video_clips_dir / f"segment_{idx}.jpg"
         
-        # Save a temporary clean base image copy for this segment
+        # Save a temporary clean base image copy for this sentence
         temp_path = output_dir / f"temp_segment_{idx}.jpg"
         base_img.save(temp_path, "JPEG", quality=95)
 
-        # Draw quote using the exact same function and font configuration as the multi-slide carousel
+        # Draw the complete sentence using the proven carousel text drawer
         draw_quote_on_image(
             image_path=str(temp_path),
             quote=sentence,
             output_path=str(segment_img_path),
             font_path=str(FONTS_DIR / "Montserrat-SemiBold.ttf"),
             font_size=52,
-            max_chars_per_line=28
+            max_chars_per_line=38
         )
         temp_path.unlink(missing_ok=True)
 
