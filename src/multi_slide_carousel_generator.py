@@ -543,20 +543,23 @@ MUSIC: <song title - artist | genre/mood>
     generated_image_prompts = []
     first_slide_image = None
 
-    # Ensure slide_quotes includes the CTA text for the final slide's audio/duration tracking
+    # Check if the final slide already contains a CTA/sharing prompt before appending code-level CTA
+    cta_keywords = ["send this", "share this", "tag a", "drop this", "save this"]
+    if slide_quotes:
+        last_slide_lower = slide_quotes[-1].lower()
+        has_existing_cta = any(kw in last_slide_lower for kw in cta_keywords)
+        if not has_existing_cta:
+            slide_quotes[-1] = f"{slide_quotes[-1]}\n\n{CALL_TO_ACTION_TEXT}"
+
+    # Ensure processed_slide_quotes matches the final slide text configuration precisely
     processed_slide_quotes = list(slide_quotes)
-    if processed_slide_quotes:
-        processed_slide_quotes[-1] = f"{processed_slide_quotes[-1]}\n\n{CALL_TO_ACTION_TEXT}"
         
     # 3. Render each planned slide, using the first slide as a stable visual reference.
     for idx, slide_text in enumerate(slide_quotes, start=1):
         logger.info(f"[CAROUSEL GENERATION] Rendering slide {idx} of {num_slides}...")
         slide_plan = visual_plan[idx - 1]
         
-        # Combine original text with CTA for the last slide if desired,
-        # or pass them separately if your draw function supports it
-        is_last_slide = (idx == num_slides)
-        current_slide_text = f"{slide_text}\n\n{CALL_TO_ACTION_TEXT}" if is_last_slide else slide_text
+        current_slide_text = slide_text
             
         image_prompt = _build_slide_prompt(
             slide_index=idx,
