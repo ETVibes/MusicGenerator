@@ -320,6 +320,13 @@ def get_text_prompt_segments_by_theme(theme: str) -> tuple[str, str, str, str, s
         mid_slides = "Honest encouragement about building strength together or being someone's safe place."
         last_slide = "An empowering reminder to share with someone who needs a reminder of their inner strength."
         ban = "No self-doubt, no giving up, no despair."
+    elif "gratitude" in normalized_theme or "small moments" in normalized_theme:
+        feel = "cozy, nostalgic, and deeply appreciative"
+        voice = "A warm, grounded reflection on slowing down to notice the little things that make everyday life feel magical. Use 'you'."
+        slide_one = "A scroll-stopping hook about the quiet beauty hiding inside an ordinary day."
+        mid_slides = "Tender observations about warm coffee cups, afternoon light, and moments of unhurried peace."
+        last_slide = "A heartwarming takeaway encouraging the reader to pause and appreciate today, perfect for sharing with a friend."
+        ban = "No rush, no hustle culture, no cynicism."
     else:
         feel = "warm, perceptive, and comforting"
         voice = "A quiet, perceptive friend talking about the unspoken dynamics between close people. Warm and specific. Use 'you'."

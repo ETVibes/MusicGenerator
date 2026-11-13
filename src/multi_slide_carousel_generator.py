@@ -466,10 +466,12 @@ def generate_multi_slide_carousel(
 
     # 1. Generate all slide text and accompanying post metadata.
     text_prompt = f"""
-You write {feel} Instagram carousel text for the account thisisdailywhisper. Theme: "{active_theme}".
+You write {feel} Instagram carousel text for the account thisisdailywhisper based on high-performing, high-engagement viral content styles. Theme: "{active_theme}".
  
 VOICE: {voice}
- 
+
+Study successful high-volume Instagram reels in this exact niche and emulate their tone (such as direct, grounding check-ins or comforting reader-focused calls to action).
+
 Generate exactly {num_slides} short quote lines, separated by the pipe character | on one line:
 - Slide 1: {slide_one}
 - Middle slides: {mid_slides}
