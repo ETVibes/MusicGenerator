@@ -309,9 +309,12 @@ def get_text_prompt_segments_by_theme(theme: str) -> tuple[str, str, str, str, s
     elif "mindfulness" in normalized_theme or "peace" in normalized_theme:
         feel = "calm, grounding, and reflective"
         voice = "A gentle, shared reflection on finding peace alongside someone else or navigating a busy world together. Use 'you'."
-        slide_one = "A hook addressing a shared feeling of exhaustion or wanting to slow down with someone."
-        mid_slides = "Simple observations about finding a safe harbor in another person or a quiet space."
-        last_slide = "A grounding takeaway with a clear invitation to drop it in a group chat or send to a friend."
+        #slide_one = "A hook addressing a shared feeling of exhaustion or wanting to slow down with someone."
+        #mid_slides = "Simple observations about finding a safe harbor in another person or a quiet space."
+        #last_slide = "A grounding takeaway with a clear invitation to drop it in a group chat or send to a friend."
+        slide_one = "A punchy opening quote or statement that stops the scroll and sets a calm tone."
+        mid_slides = "A quote about letting go of past regret or future worry to focus on the present moment"
+        last_slide = "A comforting final thought paired with a soft call-to-action encouraging saves or shares."
         ban = "No anxiety, no panic, no stress."
     elif "growth" in normalized_theme or "courage" in normalized_theme:
         feel = "encouraging, empowering, and strong"
