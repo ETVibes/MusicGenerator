@@ -61,14 +61,15 @@ def generate_single_image_post(
         music_recommendation = ""
 
         for line in raw_text.splitlines():
-            if line.startswith("QUOTE:"):
-                short_sentence = line.replace("QUOTE:", "").strip().replace('"', "")
-            elif line.startswith("EXPLANATION:"):
-                explanation = line.replace("EXPLANATION:", "").strip()
-            elif line.startswith("HASHTAGS:"):
-                hashtags = line.replace("HASHTAGS:", "").strip()
-            elif line.startswith("MUSIC:"):
-                music_recommendation = line.replace("MUSIC:", "").strip()
+            clean_line = line.replace("*", "").strip()
+            if clean_line.startswith("QUOTE:"):
+                short_sentence = clean_line.replace("QUOTE:", "", 1).strip().replace('"', "")
+            elif clean_line.startswith("EXPLANATION:"):
+                explanation = clean_line.replace("EXPLANATION:", "", 1).strip()
+            elif clean_line.startswith("HASHTAGS:"):
+                hashtags = clean_line.replace("HASHTAGS:", "", 1).strip()
+            elif clean_line.startswith("MUSIC:"):
+                music_recommendation = clean_line.replace("MUSIC:", "", 1).strip()
 
         if not short_sentence:
             short_sentence = raw_text.splitlines()[0].replace('"', "")
@@ -82,6 +83,7 @@ def generate_single_image_post(
         )
 
     else:
+        format_example = " | ".join([f"<segment {i+1}>" for i in range(num_panels)])
         text_prompt = (
             f"Write an Instagram multi-panel curiosity-loop story post for the theme '{active_theme}'.\n"
             f"1. A short {num_panels}-part narrative sequence where each part builds an open psychological loop or cliffhanger, separated strictly by '|'.\n"
@@ -89,7 +91,7 @@ def generate_single_image_post(
             f"3. 5 relevant, high-engagement Instagram hashtags tailored specifically to '{active_theme}' (always include #thisisdailywhisper).\n"
             f"4. A suggested song title and viral audio genre keyword available on Instagram Audio.\n\n"
             f"Format strictly as:\n"
-            f"QUOTE: <segment 1 | segment 2 | segment 3>\n"
+            f"QUOTE: {format_example}\n"
             f"EXPLANATION: <your explanation>\n"
             f"HASHTAGS: <your hashtags separated by spaces>\n"
             f"MUSIC: <song name - artist name | genre mood>"
@@ -106,19 +108,22 @@ def generate_single_image_post(
         music_recommendation = ""
 
         for line in raw_text.splitlines():
-            if line.startswith("QUOTE:"):
-                quote_raw = line.replace("QUOTE:", "").strip().replace('"', "")
-            elif line.startswith("EXPLANATION:"):
-                explanation = line.replace("EXPLANATION:", "").strip()
-            elif line.startswith("HASHTAGS:"):
-                hashtags = line.replace("HASHTAGS:", "").strip()
-            elif line.startswith("MUSIC:"):
-                music_recommendation = line.replace("MUSIC:", "").strip()
+            clean_line = line.replace("*", "").strip()
+            if clean_line.startswith("QUOTE:"):
+                quote_raw = clean_line.replace("QUOTE:", "", 1).strip().replace('"', "")
+            elif clean_line.startswith("EXPLANATION:"):
+                explanation = clean_line.replace("EXPLANATION:", "", 1).strip()
+            elif clean_line.startswith("HASHTAGS:"):
+                hashtags = clean_line.replace("HASHTAGS:", "", 1).strip()
+            elif clean_line.startswith("MUSIC:"):
+                music_recommendation = clean_line.replace("MUSIC:", "", 1).strip()
 
         parts = [p.strip() for p in quote_raw.split("|") if p.strip()]
 
-        if len(parts) != num_panels:
-            parts = [f"Part {i+1}" for i in range(num_panels)]
+        if len(parts) > num_panels:
+            parts = parts[:num_panels]
+        elif len(parts) < num_panels:
+            raise ValueError(f"Expected {num_panels} parts, got {len(parts)}: {quote_raw!r}")
 
         short_sentence = " ".join(parts)
 
