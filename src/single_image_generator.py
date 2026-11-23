@@ -39,12 +39,12 @@ def generate_single_image_post(
     if num_panels == 1:
         text_prompt = (
             f"Write an Instagram post caption package for the theme '{active_theme}'.\n"
-            f"1. A single short, high-impact curiosity hook sentence (4-6 words max).\n"
-            f"2. A 2-3 sentence inspiring explanation reflecting deeply on the sentence.\n"
+            f"1. A single complete, punchy statement or hook (5-8 words) that delivers a clear, whole thought without feeling cut off.\n"
+            f"2. A 1-2 sentence clear, grounded explanation that reinforces the main point.\n"
             f"3. 6 to 9 relevant, high-engagement Instagram hashtags tailored specifically to '{active_theme}' (always include #thisisdailywhisper).\n"
             f"4. A suggested song title and viral audio genre keyword available on Instagram Audio.\n\n"
             f"Format strictly as:\n"
-            f"QUOTE: <your quote without quotation marks>\n"
+            f"QUOTE: <your complete quote without quotation marks>\n"
             f"EXPLANATION: <your explanation>\n"
             f"HASHTAGS: <your hashtags separated by spaces>\n"
             f"MUSIC: <song name - artist name | genre mood>"
@@ -83,11 +83,16 @@ def generate_single_image_post(
         )
 
     else:
-        format_example = " | ".join([f"<segment {i+1}>" for i in range(num_panels)])
+        format_example = " | ".join([f"<complete panel {i+1}>" for i in range(num_panels)])
+        arc_rule = (
+            "Panel 1 states a clear setup or truth; Panel 2 delivers a complete shift or payoff so the full message lands cleanly."
+            if num_panels == 2
+            else "Panel 1 sets up the situation, Panel 2 shows the turning point, and Panel 3 delivers a complete, satisfying payoff."
+        )
         text_prompt = (
-            f"Write an Instagram multi-panel curiosity-loop story post for the theme '{active_theme}'.\n"
-            f"1. A short {num_panels}-part narrative sequence where each part builds an open psychological loop or cliffhanger, separated strictly by '|'.\n"
-            f"2. A 2-3 sentence inspiring explanation reflecting deeply on the story.\n"
+            f"Write an Instagram multi-panel story post for the theme '{active_theme}'.\n"
+            f"1. A {num_panels}-part sequence separated strictly by '|'. Each segment must be 5-8 words, grammatically complete on its own, and free of trailing ellipses or cut-off fragments. {arc_rule}\n"
+            f"2. A 1-2 sentence clear, grounded explanation tying the full sequence together.\n"
             f"3. 5 relevant, high-engagement Instagram hashtags tailored specifically to '{active_theme}' (always include #thisisdailywhisper).\n"
             f"4. A suggested song title and viral audio genre keyword available on Instagram Audio.\n\n"
             f"Format strictly as:\n"
@@ -125,14 +130,14 @@ def generate_single_image_post(
         elif len(parts) < num_panels:
             raise ValueError(f"Expected {num_panels} parts, got {len(parts)}: {quote_raw!r}")
 
-        short_sentence = " ".join(parts)
+        short_sentence = " / ".join(parts)
 
         panel_descriptions = " - ".join([f"Panel {idx}: '{part}'" for idx, part in enumerate(parts, 1)])
 
         image_prompt = (
             f"{chosen_style}. {num_panels}-row vertically stacked layout on a high-contrast 1080x1350 canvas. Theme: {active_theme}. "
             f"Subject: {character_desc}, {emotional_modifier}. "
-            f"Narrative panels with open loops: {panel_descriptions}. "
+            f"Panels with complete thoughts: {panel_descriptions}. "
             f"{POSE_CONSTRAINT} "
             f"{subject_instruction} Clean horizontal panel borders, distinct framing per row, and high-contrast bold typography for max mobile readability."
         )
